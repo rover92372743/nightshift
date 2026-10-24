@@ -1,0 +1,128 @@
+import './styles/app.css';
+import { h, svg, clear } from './lib/dom';
+import { live } from './lib/live';
+import { homePage } from './pages/home';
+import { networkPage } from './pages/network';
+import { chatPage } from './pages/chat';
+import { earnPage } from './pages/earn';
+import { pricingPage } from './pages/pricing';
+import { receiptsPage } from './pages/receipts';
+import { docsPage } from './pages/docs';
+
+export interface Page {
+  el: HTMLElement;
+  title: string;
+  unmount?(): void;
+}
+
+type Route = { path: RegExp; make: (params: string[]) => Page | Promise<Page> };
+
+const routes: Route[] = [
+  { path: /^\/$/, make: () => homePage() },
+  { path: /^\/network\/?$/, make: () => networkPage() },
+  { path: /^\/chat\/?$/, make: () => chatPage() },
+  { path: /^\/earn\/?$/, make: () => earnPage() },
+  { path: /^\/pricing\/?$/, make: () => pricingPage() },
+  { path: /^\/receipts(?:\/([^/]+))?\/?$/, make: (p) => receiptsPage(p[0]) },
+  { path: /^\/docs(?:\/([^/]+))?\/?$/, make: (p) => docsPage(p[0]) },
+];
+
+const main = document.getElementById('main')!;
+let current: Page | null = null;
+
+const mark = svg(`<svg viewBox="0 0 32 32" aria-hidden="true">
+  <rect width="32" height="32" rx="7" fill="#141A22"/>
+  <path d="M9 6h14v18l-1.75-1.5L19.5 24l-1.75-1.5L16 24l-1.75-1.5L12.5 24l-1.75-1.5L9 24z" fill="#EEF1F4"/>
+  <rect x="12" y="10" width="8" height="1.6" rx=".8" fill="#141A22"/>
+  <rect x="12" y="13.5" width="6" height="1.6" rx=".8" fill="#141A22"/>
+  <rect x="12" y="17" width="8" height="1.6" rx=".8" fill="#2745D6"/>
+</svg>`);
+
+function topbar(): void {
+  const nav = h(
+    'nav',
+    { class: 'nav', 'aria-label': 'Primary' },
+    h('a', { href: '/chat' }, 'Chat'),
+    h('a', { href: '/network' }, 'Network'),
+    h('a', { href: '/earn' }, 'Earn'),
+    h('a', { href: '/pricing' }, 'Pricing'),
+    h('a', { href: '/receipts' }, 'Verify'),
+    h('a', { href: '/docs' }, 'Docs'),
+  );
+  const pulse = h('span', { class: 'pulse', title: 'live feed' }, h('i'), h('span', null, 'connecting'));
+  live.state((up) => {
+    pulse.classList.toggle('is-live', up);
+    pulse.lastElementChild!.textContent = up ? 'live' : 'reconnecting';
+  });
+  live.subscribe(() => {});
+
+  const menu = h('button', { class: 'btn secondary icon menu-btn', 'aria-label': 'Menu', onClick: () => nav.classList.toggle('is-open') }, '☰');
+  const bar = document.getElementById('topbar')!;
+  bar.appendChild(
+    h(
+      'div',
+      { class: 'container' },
+      h('a', { class: 'brand', href: '/' }, mark, 'Docket'),
+      nav,
+      h('div', { class: 'topbar-right' }, pulse, h('a', { class: 'btn sm', href: '/docs/quickstart' }, 'Get a key'), menu),
+    ),
+  );
+  window.addEventListener('scroll', () => bar.classList.toggle('is-scrolled', window.scrollY > 8), { passive: true });
+
+  document.getElementById('footer')!.appendChild(
+    h(
+      'div',
+      { class: 'container' },
+      h('span', null, 'Docket. Credits are a unit of account on this router, not a currency. Nothing here promises a yield.'),
+      h(
+        'nav',
+        null,
+        h('a', { href: '/docs' }, 'Docs'),
+        h('a', { href: '/docs/api' }, 'API'),
+        h('a', { href: '/docs/run-a-node' }, 'Run a node'),
+        h('a', { href: '/receipts' }, 'Verify a receipt'),
+      ),
+    ),
+  );
+}
+
+async function render(pathname: string): Promise<void> {
+  const route = routes.find((r) => r.path.test(pathname));
+  const params = route ? (pathname.match(route.path)?.slice(1) ?? []) : [];
+  current?.unmount?.();
+  clear(main);
+  const page = route
+    ? await route.make(params.map((p) => (p ? decodeURIComponent(p) : p)))
+    : { el: h('div', { class: 'container section' }, h('h1', null, 'Not found'), h('p', { class: 'muted' }, 'That page does not exist.')), title: 'Not found' };
+  current = page;
+  main.appendChild(page.el);
+  document.title = page.title === 'Docket' ? 'Docket' : `${page.title} — Docket`;
+  for (const a of document.querySelectorAll<HTMLAnchorElement>('.nav a')) {
+    const on = a.getAttribute('href') === '/' ? pathname === '/' : pathname.startsWith(a.getAttribute('href')!);
+    if (on) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  }
+  document.querySelector('.nav')?.classList.remove('is-open');
+  if (!location.hash) window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+}
+
+function navigate(to: string, replace = false): void {
+  if (replace) history.replaceState(null, '', to);
+  else history.pushState(null, '', to);
+  void render(location.pathname);
+}
+
+document.addEventListener('click', (e) => {
+  const a = (e.target as Element).closest('a');
+  if (!a || a.target === '_blank' || a.hasAttribute('download') || e.metaKey || e.ctrlKey) return;
+  const href = a.getAttribute('href');
+  if (!href || !href.startsWith('/') || href.startsWith('//')) return;
+  e.preventDefault();
+  navigate(href);
+});
+window.addEventListener('popstate', () => void render(location.pathname));
+
+topbar();
+void render(location.pathname);
+
+export { navigate };
