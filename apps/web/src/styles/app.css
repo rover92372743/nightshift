@@ -84,6 +84,8 @@ img, svg, canvas { display: block; max-width: 100%; }
 .nav a:hover { background: var(--paper-2); color: var(--ink); }
 .nav a[aria-current='page'] { color: var(--ink); background: var(--paper-2); }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.node-pill { text-decoration: none; }
+.node-pill[hidden] { display: none; }
 .pulse { display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--ink-2); }
 .pulse i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
 .pulse.is-live i { background: var(--ok); box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 40%, transparent); animation: pulse 2.4s infinite; }

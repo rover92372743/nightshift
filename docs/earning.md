@@ -1,6 +1,10 @@
 # Earning with your hardware
 
-You run the agent. It takes tasks from businesses using the network, signs a receipt for each one, and credits your balance. When your balance reaches $50 you can cash out in SOL or USDC on Solana.
+Two ways to run a node. Both earn to a key, both sign a receipt per task, both cash out in SOL or USDC on Solana from $50.
+
+**In a browser tab, nothing to install.** Open the Earn page and press start. In Chrome or Edge on a machine with a graphics card, the tab serves model tasks through WebGPU; elsewhere it serves compute tasks. The model is fetched once and cached by the browser. The node runs as long as the tab is open, keeps going while you browse the rest of the site, and can keep working in the background if you let it. Close the tab and it stops.
+
+**The agent, for machines that should earn all day.** One process on the machine, bigger models through a local model server, keeps going with the lid closed. The rest of this page applies to both.
 
 ## What you get paid for
 
@@ -19,7 +23,7 @@ The list rates at the time of writing, with the operator share:
 
 To make that concrete: a 16 GB card serving 7B-model tasks that average 300 output tokens earns about $0.00034 per task. At one task every ten seconds, that's about $0.12 an hour, $2.90 a day, if the work is there. Whether the work is there depends entirely on customer demand, and the Network page shows the real queue. Nobody is paid for tasks that didn't run.
 
-**The agent chooses the class** by detecting your GPU and its memory on startup. You can set your own price above the class floor with `DOCKET_PRICE`; the router routes to the cheapest capable node, so a higher price means fewer tasks.
+**The agent chooses the class** by detecting your GPU and its memory on startup. A browser tab can see the GPU's name but not its memory, and browsers only run small models, so tab nodes with a GPU are classed as 'GPU up to 8 GB' and tabs without WebGPU as 'CPU only'. You can set your own price above the class floor with `DOCKET_PRICE`; the router routes to the cheapest capable node, so a higher price means fewer tasks.
 
 ## What you are not paid for
 

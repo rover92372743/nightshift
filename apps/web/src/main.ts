@@ -1,6 +1,7 @@
 import './styles/app.css';
 import { h, svg, clear, isPreview } from './lib/dom';
 import { setNavigate } from './lib/nav';
+import { nodeRuntime } from './lib/noderuntime';
 import { live } from './lib/live';
 import { homePage } from './pages/home';
 import { networkPage } from './pages/network';
@@ -63,6 +64,11 @@ function topbar(): void {
     h('a', { href: '/docs' }, 'Docs'),
   );
   const pulse = h('span', { class: 'pulse', title: 'live feed' }, h('i'), h('span', null, 'connecting'));
+  const nodePill = h('a', { class: 'tag stamp node-pill', href: '/earn', hidden: true }, 'node running');
+  nodeRuntime.subscribe(() => {
+    nodePill.hidden = !nodeRuntime.running;
+    nodePill.textContent = nodeRuntime.state === 'working' ? 'node working' : nodeRuntime.state === 'paused' ? 'node paused' : nodeRuntime.state === 'loading' ? 'loading model' : 'node online';
+  });
   live.state((up) => {
     pulse.classList.toggle('is-live', up);
     pulse.lastElementChild!.textContent = up ? 'live' : 'reconnecting';
@@ -77,7 +83,7 @@ function topbar(): void {
       { class: 'container' },
       h('a', { class: 'brand', href: '/' }, mark, 'Docket'),
       nav,
-      h('div', { class: 'topbar-right' }, pulse, h('a', { class: 'btn sm', href: '/pricing' }, 'For businesses'), menu),
+      h('div', { class: 'topbar-right' }, nodePill, pulse, h('a', { class: 'btn sm', href: '/pricing' }, 'For businesses'), menu),
     ),
   );
   window.addEventListener('scroll', () => bar.classList.toggle('is-scrolled', window.scrollY > 8), { passive: true });

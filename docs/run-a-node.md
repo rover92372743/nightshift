@@ -4,7 +4,9 @@ A node is anything that can register a public key, poll for work, do it, and sig
 
 ## From a browser tab
 
-The Earn page can start a lightweight node inside the tab: CPU only, compute tasks only, pauses when the tab is hidden, stops when you leave the page. It exists so people can see the flow before installing anything. Real earnings come from the agent.
+The Earn page starts a node inside the tab with nothing to install. With WebGPU (Chrome, Edge) and a graphics card it serves model tasks with a small instruct model; otherwise compute tasks. It keeps running while you move around the site, pauses on low battery, and optionally keeps working while the tab is in the background. Closing the tab stops it. The key lives in the browser's local storage, so clearing site data starts you over with a new node.
+
+Browsers throttle hidden tabs, so background earning is slower than foreground. For a machine that should earn around the clock, run the agent.
 
 ## From a terminal
 
