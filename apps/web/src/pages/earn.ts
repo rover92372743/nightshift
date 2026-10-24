@@ -3,6 +3,8 @@ import { h, clear, fmtCr, fmtMs, mountReveals, timeHM, copyText } from '../lib/d
 import { API_BASE } from '../lib/api';
 import { loadOrCreateNodeKey } from '../lib/keys';
 import { WorkerHost } from '../worker/host';
+import { Field, LIGHT } from '../lib/field';
+import { live } from '../lib/live';
 import type { Page } from '../main';
 
 const MODEL = 'qwen2.5-0.5b-instruct';
@@ -52,6 +54,9 @@ export function earnPage(): Page {
   const stopBtn = h('button', { class: 'btn secondary', disabled: true }, 'Stop') as HTMLButtonElement;
 
   const statusEl = h('div', { class: 'status' }, h('i'), h('span', null, 'Not running'));
+  const miniCanvas = h('canvas', { class: 'mini-field tall', 'aria-hidden': 'true' });
+  const mini = new Field(miniCanvas, LIGHT, { ghosts: 0, labels: true, interactive: true, routerLabel: 'router' });
+  const unsubLive = live.subscribe((ev) => mini.apply(ev));
   const statusNote = h('p', { class: 'small muted' }, 'Start the node and this tab will take jobs while it is in the foreground.');
   const progress = h('div', { class: 'bar', style: { display: 'none' } }, h('i'));
   const progressText = h('p', { class: 'small muted', style: { display: 'none' } });
@@ -270,6 +275,7 @@ export function earnPage(): Page {
         { class: 'card', style: { display: 'grid', gap: '16px' } },
         statusEl,
         statusNote,
+        miniCanvas,
         progress,
         progressText,
         current,
@@ -309,6 +315,8 @@ export function earnPage(): Page {
       // Leaving the page stops the node. Running a worker from a hidden
       // route the user cannot see would be surprising.
       stop();
+      unsubLive();
+      mini.destroy();
       document.removeEventListener('visibilitychange', onVis);
       stopReveal();
     },

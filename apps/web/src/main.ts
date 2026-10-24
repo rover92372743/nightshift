@@ -89,13 +89,21 @@ function topbar(): void {
 async function render(pathname: string): Promise<void> {
   const route = routes.find((r) => r.path.test(pathname));
   const params = route ? (pathname.match(route.path)?.slice(1) ?? []) : [];
-  current?.unmount?.();
-  clear(main);
   const page = route
     ? await route.make(params.map((p) => (p ? decodeURIComponent(p) : p)))
     : { el: h('div', { class: 'container section' }, h('h1', null, 'Not found'), h('p', { class: 'muted' }, 'That page does not exist.')), title: 'Not found' };
-  current = page;
-  main.appendChild(page.el);
+
+  // Crossfade between pages where the browser supports it; otherwise a short enter animation.
+  const swap = () => {
+    current?.unmount?.();
+    clear(main);
+    current = page;
+    page.el.classList.add('page');
+    main.appendChild(page.el);
+  };
+  const vt = (document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } }).startViewTransition;
+  if (vt && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) await vt.call(document, swap).finished.catch(() => {});
+  else swap();
   document.title = page.title === 'Docket' ? 'Docket' : `${page.title} — Docket`;
   for (const a of document.querySelectorAll<HTMLAnchorElement>('.nav a')) {
     const on = a.getAttribute('href') === '/' ? pathname === '/' : pathname.startsWith(a.getAttribute('href')!);

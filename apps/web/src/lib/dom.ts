@@ -59,7 +59,7 @@ export function fmtCr(micro: number, digits = 4): string {
 
 export function timeHM(ts: number): string {
   const d = new Date(ts);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 }
 
 /** Tween a number into an element. Used for the live counters. */

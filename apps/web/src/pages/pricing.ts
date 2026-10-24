@@ -19,6 +19,21 @@ export function pricingPage(): Page {
     }
   });
 
+  // --- what each class tends to cost: bars that grow in when scrolled to ---
+  const bands: [string, number, number, string][] = [
+    ['Browser tabs', 200, 320, 'A tab costs nothing to keep open, so this is the floor in practice.'],
+    ['Native', 350, 750, 'Someone\u2019s electricity. Faster, bigger models, a few times the price.'],
+    ['Cloud', 1500, 4000, 'Rented cards. Off on this router; shown for scale.'],
+  ];
+  const bars = h('div', { class: 'bands' }, bands.map(([name, lo, hi, note]) =>
+    h('div', { class: 'band' },
+      h('div', { class: 'band-h' }, h('b', null, name), h('span', { class: 'muted small' }, `${lo}\u2013${hi} \u00b5cr/1k`)),
+      h('div', { class: 'band-track' }, h('i', { style: `--lo:${(lo / 4000) * 100}%;--hi:${(hi / 4000) * 100}%` })),
+      h('p', { class: 'small muted' }, note),
+    ),
+  ));
+  new IntersectionObserver(([e]) => e.isIntersecting && bars.classList.add('in'), { threshold: 0.3 }).observe(bars);
+
   // --- calculator ---
   const reqs = h('input', { type: 'range', min: 10, max: 5000, step: 10, value: 500 }) as HTMLInputElement;
   const toks = h('input', { type: 'range', min: 16, max: 1024, step: 16, value: 160 }) as HTMLInputElement;
@@ -57,6 +72,7 @@ export function pricingPage(): Page {
         totalNote,
       ),
     ),
+    h('div', { class: 'card reveal', 'data-delay': '2', style: { marginTop: '24px' } }, h('h3', { style: { marginBottom: '14px' } }, 'What each kind of node tends to ask'), bars),
     h(
       'div',
       { class: 'card reveal', 'data-delay': '2', style: { marginTop: '24px' } },

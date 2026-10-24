@@ -62,3 +62,19 @@ export function sampleReceipt(): Receipt {
     routerKey: '—',
   };
 }
+
+/** A little perspective tilt that follows the pointer. Paper you can almost pick up. */
+export function tilt(el: HTMLElement, max = 7): void {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const host = el.parentElement ?? el;
+  host.style.perspective = '900px';
+  el.style.transition = 'transform 160ms ease-out';
+  el.style.transformStyle = 'preserve-3d';
+  host.addEventListener('pointermove', (e) => {
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    el.style.transform = `rotateY(${x * max * 2}deg) rotateX(${-y * max * 2}deg) translateZ(6px)`;
+  });
+  host.addEventListener('pointerleave', () => (el.style.transform = ''));
+}

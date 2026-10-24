@@ -55,7 +55,34 @@ const FIG = `
     <rect id="t-sig2" x="382" y="277" width="60" height="3" rx="1.5" fill="var(--stamp)" style="opacity:0"/>
     <path id="w-receipt" class="wire" d="M372 156 V236" style="opacity:0"/>
   </g>
+  <g id="t-packets"></g>
 </svg>`;
+
+const NS = 'http://www.w3.org/2000/svg';
+
+/** Drop a dot onto the figure and send it along a path with SMIL. */
+function travel(layer: SVGGElement, d: string, color: string, dur: number, repeat: boolean, receipt = false): void {
+  const node = document.createElementNS(NS, receipt ? 'rect' : 'circle');
+  if (receipt) {
+    node.setAttribute('width', '8');
+    node.setAttribute('height', '10');
+    node.setAttribute('x', '-4');
+    node.setAttribute('y', '-5');
+    node.setAttribute('rx', '1');
+  } else node.setAttribute('r', '4');
+  node.setAttribute('fill', color);
+  const am = document.createElementNS(NS, 'animateMotion');
+  am.setAttribute('dur', `${dur}ms`);
+  am.setAttribute('path', d);
+  am.setAttribute('repeatCount', repeat ? 'indefinite' : '1');
+  am.setAttribute('fill', 'freeze');
+  am.setAttribute('calcMode', 'spline');
+  am.setAttribute('keySplines', '0.4 0 0.2 1');
+  am.setAttribute('keyTimes', '0;1');
+  node.appendChild(am);
+  layer.appendChild(node);
+  if (!repeat) setTimeout(() => node.remove(), dur + 200);
+}
 
 const CLASSES = ['browser', 'native', 'cloud', 'external'];
 const COUNTS = [12, 4, 0, 2];
@@ -91,10 +118,15 @@ export function traceSection(): HTMLElement {
 
   let active = -1;
   const stepEls: HTMLElement[] = [];
+  const packets = fig.querySelector<SVGGElement>('#t-packets')!;
+  const reduced = prefersReducedMotion();
+  let lastUserAction = 0;
 
-  function setStep(i: number): void {
+  function setStep(i: number, byUser = false): void {
+    if (byUser) lastUserAction = performance.now();
     if (i === active) return;
     active = i;
+    packets.replaceChildren();
     stepEls.forEach((el, j) => el.classList.toggle('is-active', j === i));
     note.textContent = STEPS[i].note;
 
@@ -134,13 +166,66 @@ export function traceSection(): HTMLElement {
       ['charge actual', 'refund rest, pay node'],
     ];
     sub(...subs[i]);
+
+    if (reduced) return;
+    const chosenX = Number(chosen.getAttribute('x')) + 5;
+    const chosenY = Number(chosen.getAttribute('y')) + 5;
+    const stampBlue = 'var(--stamp)';
+    const ok = 'var(--ok)';
+    switch (i) {
+      case 0:
+        travel(packets, 'M112 156 H196', stampBlue, 1100, true);
+        break;
+      case 1:
+        travel(packets, 'M260 200 V232', stampBlue, 900, true);
+        break;
+      case 3:
+        travel(packets, `M324 156 H372 L${chosenX} ${chosenY}`, stampBlue, 1300, true);
+        break;
+      case 6:
+        travel(packets, 'M372 236 V156', ok, 1100, true, true);
+        break;
+      case 7:
+        travel(packets, 'M196 156 H112', ok, 1100, true, true);
+        travel(packets, 'M260 200 V232', ok, 900, true);
+        break;
+    }
+  }
+
+  // Walk through on its own until the person takes over.
+  let timer: number | undefined;
+  function autoplay(on: boolean): void {
+    clearInterval(timer);
+    if (!on || reduced) return;
+    timer = window.setInterval(() => {
+      if (performance.now() - lastUserAction < 9000) return;
+      setStep((active + 1) % STEPS.length);
+    }, 3600);
   }
 
   const list = h('div', { class: 'trace-steps' });
   STEPS.forEach((s, i) => {
     const el = h(
       'div',
-      { class: 'trace-step', role: 'button', tabindex: 0, onClick: () => setStep(i), onKeydown: (e: KeyboardEvent) => (e.key === 'Enter' || e.key === ' ') && setStep(i) },
+      {
+        class: 'trace-step',
+        role: 'button',
+        tabindex: 0,
+        onClick: () => setStep(i, true),
+        onKeydown: (e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') setStep(i, true);
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setStep((i + 1) % STEPS.length, true);
+            stepEls[(i + 1) % STEPS.length].focus();
+          }
+          if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setStep((i + STEPS.length - 1) % STEPS.length, true);
+            stepEls[(i + STEPS.length - 1) % STEPS.length].focus();
+          }
+        },
+      },
       h('span', { class: 'num' }, String(i + 1)),
       h('div', null, h('h3', null, s.title), h('p', null, s.body)),
     );
@@ -148,12 +233,12 @@ export function traceSection(): HTMLElement {
     list.appendChild(el);
   });
 
-  // Scroll follows along unless the user prefers reduced motion (then it's click-only).
-  if (!prefersReducedMotion()) {
+  // Scroll follows along (and counts as the person steering) unless motion is reduced.
+  if (!reduced) {
     const io = new IntersectionObserver(
       (entries) => {
         for (const en of entries) {
-          if (en.isIntersecting) setStep(stepEls.indexOf(en.target as HTMLElement));
+          if (en.isIntersecting) setStep(stepEls.indexOf(en.target as HTMLElement), true);
         }
       },
       { rootMargin: '-40% 0px -45% 0px', threshold: 0 },
@@ -163,7 +248,7 @@ export function traceSection(): HTMLElement {
 
   setStep(0);
 
-  return h(
+  const section = h(
     'section',
     { class: 'section', id: 'how' },
     h(
@@ -173,4 +258,6 @@ export function traceSection(): HTMLElement {
       h('div', { class: 'trace reveal', 'data-delay': '1' }, list, stage),
     ),
   );
+  new IntersectionObserver(([e]) => autoplay(e.isIntersecting), { threshold: 0.2 }).observe(section);
+  return section;
 }

@@ -2,6 +2,7 @@ import type { LiveEvent, NetworkStats, NodeClass, PublicNode } from '@docket/sha
 import { h, clear, tweenNumber, fmtMs, fmtCr, timeHM, mountReveals } from '../lib/dom';
 import { live } from '../lib/live';
 import { api } from '../lib/api';
+import { Field, DARK } from '../lib/field';
 import type { Page } from '../main';
 
 const CLASSES: { id: NodeClass; label: string; blurb: string }[] = [
@@ -22,6 +23,33 @@ export function networkPage(): Page {
     map.appendChild(h('div', { class: 'col' }, h('div', { class: 'col-h' }, h('b', null, c.label), count), cells, h('p', { class: 'small muted' }, c.blurb)));
   }
   const cellByNode = new Map<string, HTMLElement>();
+
+  // --- the big live map -------------------------------------------------
+  const canvas = h('canvas', { class: 'console-field', 'aria-label': 'Live map of nodes around the router' });
+  const readout = h('div', { class: 'console-readout' }, h('span', null, 'Hover a node. Click one to pin it.'));
+  const pinned = h('div', { class: 'console-pinned', hidden: true });
+  const field = new Field(canvas, DARK, { ghosts: 0, labels: true, interactive: true, routerLabel: 'router' });
+  field.onHover = (n) => {
+    readout.firstElementChild!.textContent = n ? `${n.label} · ${n.cls} · ${n.jobs} done · ${n.price} µcr/1k` : 'Hover a node. Click one to pin it.';
+  };
+  field.onClick = (id) => {
+    const n = live.nodes.get(id);
+    if (!n) return;
+    pinned.hidden = false;
+    pinned.replaceChildren(
+      h('b', null, n.label),
+      h('span', { class: 'tag' }, n.class),
+      h('div', { class: 'kv' },
+        h('span', null, 'status'), h('span', null, n.status),
+        h('span', null, 'price'), h('span', null, `${n.capabilities.pricePer1k} µcr/1k`),
+        h('span', null, 'jobs done'), h('span', null, String(n.jobsDone)),
+        h('span', null, 'serves'), h('span', null, [...n.capabilities.workloads, ...n.capabilities.models].join(', ')),
+        h('span', null, 'caps'), h('span', null, `${n.capabilities.maxOutputTokens} out · ${n.capabilities.maxPromptChars} chars`),
+      ),
+      h('button', { class: 'btn sm secondary', onClick: () => (pinned.hidden = true) }, 'Unpin'),
+    );
+  };
+  const consoleEl = h('div', { class: 'console' }, canvas, readout, pinned);
 
   function rebuild(nodes: Iterable<PublicNode>): void {
     for (const { cells } of cols.values()) clear(cells);
@@ -111,6 +139,7 @@ export function networkPage(): Page {
   }
 
   const unsub = live.subscribe((ev: LiveEvent) => {
+    field.apply(ev);
     switch (ev.t) {
       case 'hello':
         rebuild(ev.nodes);
@@ -163,8 +192,9 @@ export function networkPage(): Page {
   const el = h(
     'div',
     { class: 'container section' },
-    h('div', { class: 'section-head reveal' }, h('h1', null, 'The network, right now'), h('p', null, 'Every cell is a real node talking to this router. Blue means it is working; a green flash is a finished job.')),
+    h('div', { class: 'section-head reveal' }, h('h1', null, 'The network, right now'), h('p', null, 'Every dot is a real node talking to this router. Blue packets are jobs going out, green ones are receipts coming back. Hover, click, watch.')),
     h('div', { class: 'reveal', 'data-delay': '1' }, strip),
+    h('div', { class: 'reveal', 'data-delay': '2', style: { marginTop: '24px' } }, consoleEl),
     h('div', { class: 'card reveal', 'data-delay': '2', style: { marginTop: '24px' } }, map),
     h(
       'div',
@@ -175,5 +205,5 @@ export function networkPage(): Page {
   );
   const stopReveal = mountReveals(el);
 
-  return { el, title: 'Network', unmount: () => { unsub(); stopReveal(); } };
+  return { el, title: 'Network', unmount: () => { unsub(); stopReveal(); field.destroy(); } };
 }

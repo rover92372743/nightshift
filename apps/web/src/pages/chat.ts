@@ -2,7 +2,8 @@ import type { ChatMessage, LiveEvent, Receipt } from '@docket/shared';
 import { h, clear, fmtCr, fmtMs, mountReveals, prefersReducedMotion } from '../lib/dom';
 import { api, ApiError } from '../lib/api';
 import { live } from '../lib/live';
-import { receiptEl } from '../lib/receipt';
+import { receiptEl, tilt } from '../lib/receipt';
+import { Field, LIGHT } from '../lib/field';
 import type { Page } from '../main';
 
 const MODEL = 'qwen2.5-0.5b-instruct';
@@ -28,6 +29,8 @@ export function chatPage(): Page {
     h('div', { class: 'step' }, h('i'), h('span', null, label), h('small')),
   );
   const route = h('div', { class: 'route' }, steps);
+  const miniCanvas = h('canvas', { class: 'mini-field', 'aria-hidden': 'true' });
+  const mini = new Field(miniCanvas, LIGHT, { ghosts: 0, labels: false, interactive: false });
   const receiptSlot = h('div', { class: 'printer', style: { marginTop: '16px' } });
   const sideNote = h('p', { class: 'small muted', style: { marginTop: '10px' } }, 'Send a message and the route lights up as it happens.');
 
@@ -57,10 +60,33 @@ export function chatPage(): Page {
   // Watch the live feed for our own job so the steps move in real time.
   let watching: string | null = null;
   const unsub = live.subscribe((ev: LiveEvent) => {
+    mini.apply(ev);
     if (!watching) return;
     if (ev.t === 'job.assigned' && ev.jobId === watching) markStep(1, false), markStep(2, true);
     if (ev.t === 'job.failed' && ev.jobId === watching) sideNote.textContent = ev.reason;
   });
+
+  async function typeOut(el: HTMLElement, text: string): Promise<void> {
+    if (prefersReducedMotion()) {
+      el.textContent = text;
+      return;
+    }
+    const node = document.createTextNode('');
+    const caret = h('span', { class: 'caret' });
+    el.replaceChildren(node, caret);
+    let i = 0;
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        i = Math.min(text.length, i + 2);
+        node.data = text.slice(0, i);
+        log.scrollTop = log.scrollHeight;
+        if (i < text.length) setTimeout(tick, 14);
+        else resolve();
+      };
+      tick();
+    });
+    caret.remove();
+  }
 
   function bubble(role: string, text: string): HTMLElement {
     const m = h('div', { class: `msg ${role}` }, text);
@@ -95,7 +121,7 @@ export function chatPage(): Page {
       const res = await api.chat({ model: MODEL, messages: history, max_tokens: 160, temperature: 0.7 });
       const reply = res.choices[0]?.message.content ?? '';
       history.push({ role: 'assistant', content: reply });
-      thinking.textContent = reply || '(empty reply)';
+      await typeOut(thinking, reply || '(empty reply)');
       markStep(3, false);
       steps.forEach((s) => s.classList.add('on'));
       sideNote.textContent = `Ran on ${res.docket.node_id?.slice(0, 12)} in ${fmtMs(res.docket.duration_ms)}, ${res.usage.completion_tokens} tokens, ${fmtCr(res.docket.cost_micro ?? 0)}.`;
@@ -129,6 +155,7 @@ export function chatPage(): Page {
   function showReceipt(r: Receipt): void {
     clear(receiptSlot);
     const rc = receiptEl(r, { compact: true });
+    tilt(rc);
     receiptSlot.append(h('div', { class: 'slot' }), h('div', { class: 'paper' }, rc));
     receiptSlot.classList.add('is-printing');
     setTimeout(() => rc.classList.add('is-verified'), prefersReducedMotion() ? 0 : 1500);
@@ -150,10 +177,10 @@ export function chatPage(): Page {
         'div',
         null,
         h('div', { class: 'card' }, h('p', { class: 'small muted' }, 'Balance'), balance, balanceNote),
-        h('div', { class: 'card', style: { marginTop: '16px' } }, h('h3', { style: { marginBottom: '12px' } }, 'Route'), route, sideNote, receiptSlot),
+        h('div', { class: 'card', style: { marginTop: '16px' } }, h('h3', { style: { marginBottom: '12px' } }, 'Route'), miniCanvas, route, sideNote, receiptSlot),
       ),
     ),
   );
   const stopReveal = mountReveals(el);
-  return { el, title: 'Chat', unmount: () => { unsub(); stopReveal(); } };
+  return { el, title: 'Chat', unmount: () => { unsub(); stopReveal(); mini.destroy(); } };
 }
