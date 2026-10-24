@@ -1,6 +1,7 @@
 // Page-side handle on the Web Worker. Promises in, messages out.
 
-import type { ChatMessage, JobOutput } from '@docket/shared';
+import { computeTask, type ChatMessage, type JobOutput } from '@docket/shared';
+import { isPreview } from '../lib/dom';
 
 export interface LoadProgress {
   file: string;
@@ -18,7 +19,11 @@ export class WorkerHost {
   onProgress?: (p: LoadProgress) => void;
 
   constructor() {
-    this.w = new Worker(new URL('./node.worker.ts', import.meta.url), { type: 'module' });
+    if (isPreview()) {
+      // Single-file preview: no separate worker script, so compute runs on the
+      // main thread and the model is a stand-in that says so.
+      this.w = inlineWorker();
+    } else this.w = new Worker(new URL('./node.worker.ts', import.meta.url), { type: 'module' });
     this.w.onmessage = (e: MessageEvent) => {
       const m = e.data;
       switch (m.type) {
@@ -79,4 +84,37 @@ export class WorkerHost {
   terminate(): void {
     this.w.terminate();
   }
+}
+
+/** A fake Worker that runs compute inline and answers llm jobs with a stand-in. Preview only. */
+function inlineWorker(): Worker {
+  const listeners: ((e: MessageEvent) => void)[] = [];
+  const w = {
+    onmessage: null as ((e: MessageEvent) => void) | null,
+    postMessage(m: { type: string; id?: string; messages?: ChatMessage[]; maxNewTokens?: number; seed?: number; rounds?: number }) {
+      const reply = (data: unknown) => setTimeout(() => w.onmessage?.({ data } as MessageEvent), 0);
+      if (m.type === 'load') setTimeout(() => reply({ type: 'loaded', device: 'preview' }), 600);
+      else if (m.type === 'compute') {
+        const t0 = performance.now();
+        computeTask(m.seed ?? 0, m.rounds ?? 0).then((digest) => reply({ type: 'result', id: m.id, digest, outputTokens: 0, durationMs: performance.now() - t0 }));
+      } else if (m.type === 'generate') {
+        const text = 'This tab is a node in the preview. On the real network it would be running a small model right now; here it signs a stand-in reply so the rest of the flow is real.';
+        const toks = Math.min(m.maxNewTokens ?? 64, Math.ceil(text.length / 4));
+        let i = 0;
+        const iv = setInterval(() => {
+          i += 3;
+          reply({ type: 'token', id: m.id, text: text.slice(i - 3, i) });
+          if (i >= text.length) {
+            clearInterval(iv);
+            reply({ type: 'result', id: m.id, text, outputTokens: toks, durationMs: 1200 });
+          }
+        }, 30);
+      }
+    },
+    terminate() {},
+    addEventListener(_t: string, f: (e: MessageEvent) => void) {
+      listeners.push(f);
+    },
+  };
+  return w as unknown as Worker;
 }

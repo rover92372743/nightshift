@@ -34,10 +34,11 @@ function savePrefs(p: Prefs): void {
   }
 }
 function defaultLabel(): string {
-  const ua = navigator.userAgent;
-  const os = /Mac/.test(ua) ? 'mac' : /Windows/.test(ua) ? 'windows' : /Linux/.test(ua) ? 'linux' : 'device';
-  const br = /Edg\//.test(ua) ? 'edge' : /Chrome\//.test(ua) ? 'chrome' : /Firefox\//.test(ua) ? 'firefox' : /Safari\//.test(ua) ? 'safari' : 'browser';
-  return `${br} on ${os}`;
+  // Deliberately says nothing about the browser or OS. Two short syllables and a number.
+  const a = ['quiet', 'brisk', 'plain', 'early', 'spare', 'steady', 'small', 'blue', 'grey', 'calm'];
+  const b = ['lamp', 'kettle', 'harbour', 'ledger', 'pebble', 'maple', 'anvil', 'cedar', 'copper', 'quill'];
+  const r = crypto.getRandomValues(new Uint16Array(3));
+  return `${a[r[0] % a.length]}-${b[r[1] % b.length]}-${(r[2] % 900) + 100}`;
 }
 
 export function earnPage(): Page {

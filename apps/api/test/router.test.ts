@@ -176,7 +176,8 @@ test('tampered receipts are rejected', async () => {
     assert.equal((await node.complete(job.id, bad1)).statusCode, 400);
 
     // Right counters, wrong signature.
-    const bad2 = { ...good, nodeSig: good.nodeSig.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A')) };
+    // Flip a character in the middle; the last one can land on padding bits and still verify.
+    const bad2 = { ...good, nodeSig: good.nodeSig.slice(0, 20) + (good.nodeSig[20] === 'A' ? 'B' : 'A') + good.nodeSig.slice(21) };
     assert.equal((await node.complete(job.id, bad2)).statusCode, 400);
 
     // Claim a different job id.
@@ -262,6 +263,46 @@ test('cloud and external classes are refused by default', async () => {
     const node = makeNode(app);
     const r = await app.inject({ method: 'POST', url: '/v1/nodes/register', payload: { class: 'external', label: 'x', publicKey: node.publicKey, capabilities: { workloads: ['llm'], models: ['m1'] } } });
     assert.equal(r.statusCode, 403);
+  } finally {
+    await close();
+  }
+});
+
+test('nodes never learn who the requester is', async () => {
+  const { app, close } = await fresh();
+  try {
+    const node = makeNode(app);
+    await node.register();
+    await app.inject({ method: 'POST', url: '/v1/jobs', payload: { workload: 'llm', model: 'm1', messages: [{ role: 'user', content: 'x' }], maxOutputTokens: 10 } });
+    const job = (await node.claim()).json().job;
+    assert.equal(job.requesterId, 'hidden');
+    assert.ok(!JSON.stringify(job).includes('sess_'));
+  } finally {
+    await close();
+  }
+});
+
+test('prompt and reply text are scrubbed after the retention window; hashes and receipts stay', async () => {
+  const { app, ctx, close } = await fresh();
+  try {
+    const node = makeNode(app);
+    await node.register();
+    const sub = await app.inject({ method: 'POST', url: '/v1/jobs', payload: { workload: 'llm', model: 'm1', messages: [{ role: 'user', content: 'my secret prompt' }], maxOutputTokens: 10 } });
+    const cookie = sub.headers['set-cookie'] as string;
+    const job = (await node.claim()).json().job;
+    const output = { text: 'a private reply', outputTokens: 3, units: 3, durationMs: 5 };
+    const done = await node.complete(job.id, receiptFor(job, node, output, 'browser', 300));
+    assert.equal(done.statusCode, 200);
+
+    assert.equal(ctx.router.scrubContent(60_000), 0); // too fresh
+    await new Promise((r) => setTimeout(r, 5));
+    assert.equal(ctx.router.scrubContent(1), 1);
+    const after = (await app.inject({ method: 'GET', url: `/v1/jobs/${job.id}`, headers: { cookie } })).json();
+    assert.ok(!JSON.stringify(after.input).includes('secret'));
+    assert.ok(!JSON.stringify(after.output).includes('private'));
+    assert.equal(after.inputHash, job.inputHash);
+    assert.equal(after.receipt.body.outputHash, done.json().receipt.body.outputHash);
+    assert.equal((await app.inject({ method: 'POST', url: '/v1/receipts/verify', payload: { receipt: after.receipt } })).json().valid, true);
   } finally {
     await close();
   }

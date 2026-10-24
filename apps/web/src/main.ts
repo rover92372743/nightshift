@@ -1,5 +1,6 @@
 import './styles/app.css';
-import { h, svg, clear } from './lib/dom';
+import { h, svg, clear, isPreview } from './lib/dom';
+import { setNavigate } from './lib/nav';
 import { live } from './lib/live';
 import { homePage } from './pages/home';
 import { networkPage } from './pages/network';
@@ -28,6 +29,21 @@ const routes: Route[] = [
 ];
 
 const main = document.getElementById('main')!;
+const PREVIEW = isPreview();
+/** Where we are. The preview can't own real paths, so it routes on the hash. */
+function here(): string {
+  if (!PREVIEW) return location.pathname;
+  // The preview routes on a bare hash token: "chat", "docs.api", "receipts.rcpt_x".
+  const tok = previewRoute || location.hash.slice(1);
+  if (!tok) return '/';
+  const [head, ...rest] = tok.split('.');
+  return '/' + head + (rest.length ? '/' + rest.join('.') : '');
+}
+let previewRoute = '';
+function toToken(path: string): string {
+  const parts = path.replace(/^\/|\/$/g, '').split('/');
+  return parts.filter(Boolean).join('.');
+}
 let current: Page | null = null;
 
 const mark = svg(`<svg viewBox="0 0 32 32" aria-hidden="true">
@@ -111,13 +127,24 @@ async function render(pathname: string): Promise<void> {
     else a.removeAttribute('aria-current');
   }
   document.querySelector('.nav')?.classList.remove('is-open');
-  if (!location.hash) window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  if (PREVIEW || !location.hash) window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
 }
 
 function navigate(to: string, replace = false): void {
+  if (PREVIEW) {
+    previewRoute = toToken(to);
+    try {
+      if (replace) history.replaceState(null, '', '#' + previewRoute);
+      else history.pushState(null, '', '#' + previewRoute);
+    } catch {
+      /* the viewer may not let us touch the URL; the route is kept in memory anyway */
+    }
+    void render(here());
+    return;
+  }
   if (replace) history.replaceState(null, '', to);
   else history.pushState(null, '', to);
-  void render(location.pathname);
+  void render(here());
 }
 
 document.addEventListener('click', (e) => {
@@ -128,9 +155,21 @@ document.addEventListener('click', (e) => {
   e.preventDefault();
   navigate(href);
 });
-window.addEventListener('popstate', () => void render(location.pathname));
+window.addEventListener('popstate', () => void render(here()));
+if (PREVIEW) window.addEventListener('hashchange', () => { previewRoute = location.hash.slice(1); void render(here()); });
 
 topbar();
-void render(location.pathname);
+if (PREVIEW) {
+  document.body.classList.add('is-preview');
+  document.body.prepend(
+    h(
+      'div',
+      { class: 'preview-banner' },
+      h('b', null, 'Preview build.'),
+      ' The router and a few nodes are simulated inside this page: routing, holds, refunds and signed receipts are real; chat replies are canned. The repo runs the real thing.',
+    ),
+  );
+}
+void render(here());
 
-export { navigate };
+setNavigate((to) => navigate(to));

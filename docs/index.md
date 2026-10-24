@@ -20,6 +20,7 @@ Everything is built around the receipt. A node can't claim it did work without s
 - [API](/docs/api): every endpoint with curl examples.
 - [Receipts](/docs/receipts): the exact bytes that get signed.
 - [Run a node](/docs/run-a-node): from a tab or a terminal.
+- [Privacy](/docs/privacy): what each party can see. Pseudonymous, not anonymous.
 - [Pricing and credits](/docs/pricing-and-credits): how a job is quoted, charged and paid.
 - [Architecture](/docs/architecture): the job lifecycle and why nodes pull.
 - [Payouts and tiers](/docs/payouts-and-tiers): what's wired, what's a stub, and how to plug in a real rail.

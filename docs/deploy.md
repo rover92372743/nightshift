@@ -37,6 +37,8 @@ With `DOCKET_STATIC` set the API serves the built site and falls back to `index.
 | `INFER_RPM` | `20` | Per-address limit on inference endpoints |
 | `EXTERNAL_ENABLED` | `false` | Allow `cloud` and `external` node classes |
 | `LOG_LEVEL` | `info` | pino level |
+| `REQUEST_LOGGING` | `false` | One log line per request. Addresses and auth headers are redacted even when on |
+| `CONTENT_RETENTION_MIN` | `10` | Minutes to keep prompt/reply text after a job finishes; hashes stay. `0` keeps text |
 
 ### Reverse proxy
 

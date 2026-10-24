@@ -24,4 +24,8 @@ export const config = {
   /** Cloud/external tiers are off unless explicitly enabled. See docs/payouts-and-tiers.md. */
   externalEnabled: env('EXTERNAL_ENABLED', 'false') === 'true',
   logLevel: env('LOG_LEVEL', 'info'),
+  /** Log one line per HTTP request (includes the caller's IP). Off by default. */
+  requestLogging: env('REQUEST_LOGGING', 'false') === 'true',
+  /** Minutes to keep prompt and reply text after a job finishes. Hashes are kept forever. 0 keeps text forever. */
+  contentRetentionMin: Number(env('CONTENT_RETENTION_MIN', '10')),
 };

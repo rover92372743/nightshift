@@ -43,7 +43,12 @@ export function buildContext(opts: { dbPath?: string; keyPath?: string } = {}): 
 
 export async function buildApp(ctx: Ctx): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: { level: config.logLevel },
+    logger: {
+      level: config.logLevel,
+      // Even with request logging on, keep addresses and auth material out of the log file.
+      redact: ['req.headers.authorization', 'req.headers.cookie', 'req.headers["x-node-auth"]', 'req.remoteAddress', 'req.headers["user-agent"]'],
+    },
+    disableRequestLogging: !config.requestLogging,
     bodyLimit: 256 * 1024,
   });
 
@@ -88,6 +93,7 @@ export async function buildApp(ctx: Ctx): Promise<FastifyInstance> {
   const timer = setInterval(() => {
     for (const nodeId of ctx.nodes.reap()) ctx.router.releaseNodeJobs(nodeId);
     ctx.router.reapLeases();
+    if (config.contentRetentionMin > 0) ctx.router.scrubContent(config.contentRetentionMin * 60_000);
   }, HEARTBEAT_MS / 2);
   app.addHook('onClose', async () => clearInterval(timer));
 

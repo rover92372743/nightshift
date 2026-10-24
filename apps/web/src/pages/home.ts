@@ -1,11 +1,12 @@
 import type { LiveEvent, NetworkStats } from '@docket/shared';
-import { h, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtCr } from '../lib/dom';
+import { h, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtCr, isPreview } from '../lib/dom';
 import { live } from '../lib/live';
 import { api, ApiError } from '../lib/api';
 import { receiptEl, sampleReceipt, tilt } from '../lib/receipt';
 import { Field, LIGHT } from '../lib/field';
 import { traceSection } from './trace';
 import { simulatorSection } from './simulator';
+import { navigate } from '../lib/nav';
 import type { Page } from '../main';
 
 export function homePage(): Page {
@@ -17,7 +18,7 @@ export function homePage(): Page {
     hoverTip.hidden = !n;
     if (n) hoverTip.textContent = `${n.label} · ${n.cls} · ${n.jobs} done · ${n.price} µcr/1k`;
   };
-  field.onClick = () => (location.href = '/network');
+  field.onClick = () => navigate('/network');
   canvas.addEventListener('pointermove', (e) => {
     hoverTip.style.left = `${e.clientX + 14}px`;
     hoverTip.style.top = `${e.clientY + 14}px`;

@@ -153,7 +153,33 @@ export class Router {
     if (!row) return null;
     const t = nowMs();
     this.db.prepare("UPDATE jobs SET status='running', started_at=?, lease_expires_at=? WHERE id=?").run(t, t + LEASE_MS, row.id);
-    return rowToJob({ ...row, status: 'running', started_at: t });
+    const job = rowToJob({ ...row, status: 'running', started_at: t });
+    // The node needs the work, not who asked for it.
+    return { ...job, requesterId: 'hidden' };
+  }
+
+  /**
+   * Content retention. Prompts and replies are only needed until the
+   * requester has read them; after that the hashes on the receipt are the
+   * record. Runs on the housekeeping timer.
+   */
+  scrubContent(olderThanMs: number): number {
+    const cutoff = nowMs() - olderThanMs;
+    const rows = this.db
+      .prepare("SELECT id, input, output FROM jobs WHERE status IN ('done','failed','cancelled') AND finished_at < ? AND scrubbed = 0")
+      .all(cutoff) as Array<{ id: string; input: string; output: string | null }>;
+    const upd = this.db.prepare('UPDATE jobs SET input=?, output=?, scrubbed=1 WHERE id=?');
+    const tx = this.db.transaction(() => {
+      for (const r of rows) {
+        const input = JSON.parse(r.input) as JobInput;
+        if (input.messages) input.messages = [{ role: 'user', content: `[removed after ${Math.round(olderThanMs / 60000)} min; ${input.messages.length} messages]` }];
+        const output = r.output ? (JSON.parse(r.output) as JobOutput) : null;
+        if (output?.text) output.text = '[removed]';
+        upd.run(JSON.stringify(input), output ? JSON.stringify(output) : null, r.id);
+      }
+    });
+    tx();
+    return rows.length;
   }
 
   /** Called on a timer. Expired leases go back to the queue or fail out. */

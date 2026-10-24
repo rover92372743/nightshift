@@ -1,5 +1,5 @@
 import type { Receipt } from '@docket/shared';
-import { h, clear, mountReveals, copyText } from '../lib/dom';
+import { h, clear, mountReveals, copyText, isPreview } from '../lib/dom';
 import { api } from '../lib/api';
 import { verifyReceiptLocally } from '../lib/keys';
 import { receiptEl } from '../lib/receipt';
@@ -49,7 +49,7 @@ export function receiptsPage(initialId?: string): Page {
   async function doLookup(): Promise<void> {
     const id = idInput.value.trim();
     if (!id) return;
-    history.replaceState(null, '', `/receipts/${encodeURIComponent(id)}`);
+    if (!isPreview()) history.replaceState(null, '', `/receipts/${encodeURIComponent(id)}`);
     lookup.disabled = true;
     try {
       const { receipt } = await api.receipt(id);

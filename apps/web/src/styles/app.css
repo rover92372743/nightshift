@@ -65,9 +65,16 @@ img, svg, canvas { display: block; max-width: 100%; }
 .container { width: min(100% - 2 * var(--gutter), var(--max)); margin-inline: auto; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* ---------- preview banner ---------- */
+
+.is-preview .reveal { opacity: 1; transform: none; transition: none; }
+
+.preview-banner { background: var(--ink); color: var(--paper); font-size: 0.9rem; padding: 8px var(--gutter); text-align: center; }
+.preview-banner b { color: #9fb0ff; margin-right: 6px; }
+
 /* ---------- top bar ---------- */
 
-.topbar { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--paper) 85%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid transparent; transition: border-color var(--t-med); }
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--paper) 85%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid transparent; transition: border-color var(--t-med); }
 .topbar.is-scrolled { border-bottom-color: var(--rule); }
 .topbar .container { display: flex; align-items: center; gap: 28px; height: 64px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 700; font-size: 1.15rem; letter-spacing: -0.02em; }

@@ -109,3 +109,8 @@ export function mountReveals(root: ParentNode): () => void {
 export function copyText(text: string): Promise<void> {
   return navigator.clipboard.writeText(text);
 }
+
+/** True when the page runs with the in-page mock router (see preview.ts). */
+export function isPreview(): boolean {
+  return Boolean((window as unknown as { __DOCKET_PREVIEW__?: boolean }).__DOCKET_PREVIEW__);
+}

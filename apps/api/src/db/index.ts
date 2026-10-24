@@ -12,6 +12,7 @@ export function openDb(file: string): Db {
   const db = new Database(file);
   const schema = fs.readFileSync(path.join(here, 'schema.sql'), 'utf8');
   db.exec(schema);
+  migrate(db);
   return db;
 }
 
@@ -27,4 +28,17 @@ export function id(prefix: string): string {
   let s = '';
   for (const b of bytes) s += b.toString(36).padStart(2, '0');
   return `${prefix}_${s}`;
+}
+
+// Columns added after the first release. CREATE TABLE IF NOT EXISTS won't add
+// them to an existing file, so check and add. Keep this list in order.
+const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
+  ['jobs', 'scrubbed', 'INTEGER NOT NULL DEFAULT 0'],
+];
+
+function migrate(db: Db): void {
+  for (const [table, column, ddl] of ADDED_COLUMNS) {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  }
 }

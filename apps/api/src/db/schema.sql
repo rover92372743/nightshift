@@ -55,7 +55,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   assigned_at      INTEGER,
   started_at       INTEGER,
   finished_at      INTEGER,
-  error            TEXT
+  error            TEXT,
+  scrubbed         INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS jobs_status ON jobs(status, created_at);
 CREATE INDEX IF NOT EXISTS jobs_requester ON jobs(requester_id, created_at);

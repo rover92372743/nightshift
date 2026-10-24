@@ -6,7 +6,7 @@ A node is anything that can register a public key, poll for work, do it, and sig
 
 Open `/earn`, pick a name and a price, press start. What happens:
 
-1. The page generates an ed25519 key pair the first time and keeps the secret in `localStorage`. The router never sees it. Clear site data and you're a new node with a zero balance, so don't.
+1. The page generates an ed25519 key pair the first time and keeps the secret in `localStorage`. The router never sees it. Clear site data and you're a new node with a zero balance, so don't. The default name is a random two-word label that says nothing about your browser or OS; see [Privacy](/docs/privacy) for everything the router and the public can see.
 2. If "Serve the chat model" is on, a Web Worker loads a small instruct model through transformers.js. WebGPU if the browser has it, CPU otherwise. The download is a few hundred megabytes once; the browser caches the weights.
 3. The tab registers, then loops: claim, work, complete, repeat. While the tab is hidden, or the battery is under 20% and not charging, it heartbeats as busy and takes nothing.
 4. Leaving the Earn page stops the node. A worker you can't see is a worker you'll forget about.

@@ -138,13 +138,15 @@ export function networkPage(): Page {
     while (feedEl.children.length > 80) feedEl.lastElementChild?.remove();
   }
 
+  let greeted = false;
   const unsub = live.subscribe((ev: LiveEvent) => {
     field.apply(ev);
     switch (ev.t) {
       case 'hello':
         rebuild(ev.nodes);
         applyStats(ev.stats);
-        log('feed', `connected · ${ev.nodes.length} node${ev.nodes.length === 1 ? '' : 's'} online`);
+        if (!greeted) log('feed', `connected · ${ev.nodes.length} node${ev.nodes.length === 1 ? '' : 's'} online`);
+        greeted = true;
         break;
       case 'stats':
         applyStats(ev.stats);
