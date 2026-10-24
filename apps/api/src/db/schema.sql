@@ -35,7 +35,9 @@ CREATE TABLE IF NOT EXISTS nodes (
   jobs_done       INTEGER NOT NULL DEFAULT 0,
   jobs_failed     INTEGER NOT NULL DEFAULT 0,
   units_verified  INTEGER NOT NULL DEFAULT 0,
-  earned_micro    INTEGER NOT NULL DEFAULT 0
+  earned_micro    INTEGER NOT NULL DEFAULT 0,
+  online_ms_24h   INTEGER NOT NULL DEFAULT 0,
+  uptime_day      INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS nodes_status ON nodes(status, last_seen);
 
@@ -83,4 +85,12 @@ CREATE TABLE IF NOT EXISTS payouts (
   tx_ref       TEXT,
   created_at   INTEGER NOT NULL,
   settled_at   INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS quotes (
+  id          TEXT PRIMARY KEY,
+  company     TEXT NOT NULL,
+  email       TEXT NOT NULL,
+  need        TEXT NOT NULL,
+  created_at  INTEGER NOT NULL
 );

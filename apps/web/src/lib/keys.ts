@@ -47,6 +47,18 @@ export function loadOrCreateNodeKey(): Signer & { secret: string; reset(): void 
   };
 }
 
+/** A signer for a key pasted from another machine. Not stored. */
+export function importNodeKey(secretB64u: string): Signer | null {
+  try {
+    const sk = fromB64u(secretB64u);
+    if (sk.length !== 64) return null;
+    const kp = nacl.sign.keyPair.fromSecretKey(sk);
+    return { publicKey: b64u(kp.publicKey), sign: (msg: string) => b64u(nacl.sign.detached(new TextEncoder().encode(msg), kp.secretKey)) };
+  } catch {
+    return null;
+  }
+}
+
 function verify(msg: string, sig: string, pub: string): boolean {
   try {
     return nacl.sign.detached.verify(new TextEncoder().encode(msg), fromB64u(sig), fromB64u(pub));

@@ -15,15 +15,13 @@ On first boot the router writes two files into `data/`: `docket.db` (SQLite) and
 
 ## Get a node online
 
-Open `http://localhost:5173/earn`, leave the defaults, press **Start node**. The first time, the tab downloads a small model (a few hundred megabytes; the browser caches it). When the status reads "Online, waiting for work", go to `/chat` in another tab and say hello. Watch `/network` in a third if you like.
-
-If you'd rather not load a model, untick "Serve the chat model" and the tab will only take compute jobs. Or run the terminal worker:
-
 ```sh
 npm run worker
 ```
 
-That registers a native node that serves compute jobs. See [Run a node](/docs/run-a-node) for adding an llm backend to it.
+That starts the agent: it detects your GPU, picks a price for its class, registers, and waits for work. It serves compute tasks out of the box; to serve model tasks, point it at a local model server (see [Run a node](/docs/run-a-node)). Open `http://localhost:5173/network` to watch it on the map, and `npm run cli` to see its earnings.
+
+The Earn page can also start a lightweight CPU node inside a browser tab, which is a quick way to see the flow without installing anything.
 
 ## Make a request from code
 
@@ -42,7 +40,7 @@ Keys start empty. Top one up as the operator:
 node apps/api/scripts/grant.mjs acct_… 5
 ```
 
-Then point any OpenAI-compatible client at `/v1`:
+Then point any OpenAI-compatible client at `/v1` (press **Send a test job** on the home page first if no model node is online; compute tasks run on any node):
 
 ```sh
 curl -s localhost:8787/v1/chat/completions \

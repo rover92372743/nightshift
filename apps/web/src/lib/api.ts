@@ -35,11 +35,10 @@ export const api = {
   nodes: () => call<{ nodes: PublicNode[] }>('/v1/nodes'),
   me: () => call<{ accountId: string; balanceMicro: number; ledger: LedgerEntry[] }>('/v1/me'),
   createKey: (label: string) => call<{ accountId: string; apiKey: string }>('/v1/keys', { method: 'POST', body: JSON.stringify({ label }) }),
-  chat: (body: { model: string; messages: { role: string; content: string }[]; max_tokens: number; temperature?: number }) =>
-    call<ChatResponse>('/v1/chat/completions', { method: 'POST', body: JSON.stringify(body) }),
   job: (id: string) => call<JobRecord & { receipt?: Receipt }>(`/v1/jobs/${id}`),
   jobs: () => call<{ jobs: JobRecord[] }>('/v1/jobs'),
   submitJob: (body: Record<string, unknown>) => call<JobRecord>('/v1/jobs', { method: 'POST', body: JSON.stringify(body) }),
+  quote: (body: { company: string; email: string; need: string }) => call<{ ok: true }>('/v1/quotes', { method: 'POST', body: JSON.stringify(body) }),
   latestReceipts: () => call<{ receipts: Receipt[] }>('/v1/receipts'),
   receipt: (id: string) => call<{ receipt: Receipt; valid: Verdict }>(`/v1/receipts/${id}`),
   verify: (receipt: Receipt) => call<Verdict>('/v1/receipts/verify', { method: 'POST', body: JSON.stringify({ receipt }) }),

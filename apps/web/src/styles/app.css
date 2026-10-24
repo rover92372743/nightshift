@@ -332,6 +332,15 @@ img, svg, canvas { display: block; max-width: 100%; }
 .joblist div { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 6px 8px; border-radius: 6px; background: var(--paper); font-variant-numeric: tabular-nums; }
 @media (max-width: 860px) { .worker { grid-template-columns: 1fr; } }
 
+/* ---------- earnings terminal ---------- */
+
+.term-card { background: #0e1218; border-color: #1c2430; }
+.term-bar { display: flex; align-items: center; gap: 7px; padding: 10px 14px; border-bottom: 1px solid #1c2430; }
+.term-bar span { width: 10px; height: 10px; border-radius: 50%; background: #2a3442; }
+.term-bar b { margin-left: 8px; color: #7d8aa0; font-weight: 500; font-size: 0.85rem; font-family: var(--mono); }
+.term { margin: 0; padding: 16px; background: transparent; color: #d7deE7; font-size: 13px; line-height: 1.6; min-height: 320px; white-space: pre; overflow-x: auto; }
+.term-card .small { color: #7d8aa0; }
+
 /* ---------- pricing ---------- */
 
 .price-big { font-size: clamp(2.6rem, 6vw, 4rem); font-weight: 700; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; line-height: 1; }

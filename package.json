@@ -13,7 +13,9 @@
     "start": "npm run start -w apps/api",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "worker": "node apps/api/scripts/headless-worker.mjs"
+    "worker": "node apps/api/scripts/headless-worker.mjs",
+    "cli": "node apps/api/scripts/docket.mjs",
+    "build:preview": "npm run build -w packages/shared && cd apps/web && vite build -c vite.preview.config.ts"
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

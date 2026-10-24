@@ -7,7 +7,7 @@
 
 import nacl from 'tweetnacl';
 import type { JobInput, JobOutput, JobRecord, LiveEvent, NetworkStats, NodeCapabilities, NodeClass, PublicNode, Receipt, ReceiptBody } from '@docket/shared';
-import { canonical, computeTask, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PRICE_FLOOR_PER_1K } from '@docket/shared';
+import { canonical, computeTask, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K } from '@docket/shared';
 
 const enc = new TextEncoder();
 function b64u(bytes: Uint8Array): string {
@@ -53,6 +53,8 @@ interface MNode {
   balance: number;
   simulated: boolean;
   lastSeen: number;
+  uptime: number;
+  payouts: { id: string; status: string; rail: string; amountMicro: number; createdAt: number }[];
 }
 
 const REPLIES = [
@@ -96,7 +98,7 @@ export class MockRouter {
 
   private simNode(cls: NodeClass, label: string, caps: NodeCapabilities): MNode {
     const kp = nacl.sign.keyPair();
-    const n: MNode = { id: id('nd'), cls, label, pk: b64u(kp.publicKey), sk: kp.secretKey, caps, status: 'online', jobsDone: Math.floor(Math.random() * 30), jobsFailed: 0, units: 0, earned: 0, balance: 0, simulated: true, lastSeen: Date.now() };
+    const n: MNode = { id: id('nd'), cls, label, pk: b64u(kp.publicKey), sk: kp.secretKey, caps, status: 'online', jobsDone: Math.floor(Math.random() * 30), jobsFailed: 0, units: 0, earned: 0, balance: 0, simulated: true, lastSeen: Date.now(), uptime: 0, payouts: [] };
     this.nodes.set(n.id, n);
     this.emit({ t: 'node.up', node: this.pub(n) });
     return n;
@@ -132,6 +134,7 @@ export class MockRouter {
     const llm = this.online().filter((n) => n.caps.workloads.includes('llm') && n.status !== 'offline');
     return {
       nodesOnline: this.online().length,
+      nodesRegistered: this.nodes.size,
       nodesByClass: byClass,
       jobsQueued: all.filter((j) => j.status === 'queued').length,
       jobsRunning: all.filter((j) => j.status === 'assigned' || j.status === 'running').length,
@@ -308,6 +311,7 @@ export class MockRouter {
     if (path === '/v1/router-key') return { status: 200, body: { publicKey: this.routerKey, alg: 'ed25519' } };
     if (path === '/v1/nodes' && method === 'GET') return { status: 200, body: { nodes: this.online().map((n) => this.pub(n)) } };
     if (path === '/v1/me') return { status: 200, body: { accountId: 'sess_preview', balanceMicro: this.balance, ledger: this.ledger.slice(0, 30) } };
+    if (path === '/v1/quotes') return { status: 200, body: { ok: true } };
     if (path === '/v1/keys') return { status: 200, body: { accountId: id('acct'), apiKey: 'dk_preview_' + id('k'), note: 'preview key; the real router stores a hash' } };
     if (path === '/v1/receipts' && method === 'GET') return { status: 200, body: { receipts: Array.from(this.receipts.values()).reverse().slice(0, 10) } };
     if (path === '/v1/receipts/verify') return b.receipt?.body ? { status: 200, body: this.checkReceipt(b.receipt) } : { status: 400, body: err('receipt required') };
@@ -333,8 +337,9 @@ export class MockRouter {
     if (path === '/v1/nodes/register') {
       if (b.class === 'cloud' || b.class === 'external') return { status: 403, body: err('cloud and external node classes are disabled on this router') };
       let n = Array.from(this.nodes.values()).find((q) => q.pk === b.publicKey);
+      if (b.lookupOnly) return n ? { status: 200, body: { node: this.rec(n), routerKey: this.routerKey } } : { status: 400, body: err('no node registered with this key; run the worker first') };
       if (!n) {
-        n = { id: id('nd'), cls: b.class ?? 'browser', label: String(b.label ?? 'unnamed').slice(0, 48), pk: b.publicKey, caps: { ...b.capabilities, pricePer1k: Math.max(PRICE_FLOOR_PER_1K, Number(b.capabilities?.pricePer1k ?? PRICE_FLOOR_PER_1K)) }, status: 'online', jobsDone: 0, jobsFailed: 0, units: 0, earned: 0, balance: 0, simulated: false, lastSeen: Date.now() };
+        n = { id: id('nd'), cls: b.class ?? 'browser', label: String(b.label ?? 'unnamed').slice(0, 48), pk: b.publicKey, caps: { ...b.capabilities, pricePer1k: Math.max(PRICE_FLOOR_PER_1K, Number(b.capabilities?.pricePer1k ?? PRICE_FLOOR_PER_1K)) }, status: 'online', jobsDone: 0, jobsFailed: 0, units: 0, earned: 0, balance: 0, simulated: false, lastSeen: Date.now(), uptime: 0, payouts: [] };
         this.nodes.set(n.id, n);
       } else {
         n.status = 'online';
@@ -349,14 +354,17 @@ export class MockRouter {
       const n = this.nodes.get(x[1]);
       if (!n) return { status: 404, body: err('unknown node') };
       if (!(await this.nodeAuth(n, method, path, headers, body))) return { status: 401, body: err('bad node signature') };
-      n.lastSeen = Date.now();
       const action = x[2].startsWith('jobs/') ? x[4] : x[2];
       if (action === 'heartbeat') {
+        n.uptime += Math.min(35_000, Date.now() - n.lastSeen);
+        n.lastSeen = Date.now();
         if (n.status !== 'busy' || !b.busy) n.status = b.busy ? 'busy' : 'online';
         if (!b.busy) this.dispatch();
         return { status: 200, body: { ok: true, serverTime: Date.now() } };
       }
       if (action === 'claim') {
+        n.uptime += Math.min(35_000, Date.now() - n.lastSeen);
+        n.lastSeen = Date.now();
         if (n.status === 'offline') n.status = 'online';
         this.dispatch();
         const j = Array.from(this.jobs.values()).find((q) => q.nodeId === n.id && q.status === 'assigned');
@@ -370,13 +378,16 @@ export class MockRouter {
         this.fail(n.id, x[3], String(b.reason ?? 'failed'));
         return { status: 200, body: { ok: true } };
       }
-      if (action === 'me') return { status: 200, body: { node: this.rec(n), balanceMicro: n.balance, ledger: [], jobs: Array.from(this.jobs.values()).filter((q) => q.nodeId === n.id).reverse().slice(0, 20), payouts: [] } };
+      if (action === 'me') return { status: 200, body: { node: this.rec(n), uptimeMs24h: n.uptime, payoutMinMicro: PAYOUT_MIN_MICRO, balanceMicro: n.balance, ledger: [], jobs: Array.from(this.jobs.values()).filter((q) => q.nodeId === n.id).reverse().slice(0, 20).map((j) => ({ ...j, requesterId: 'hidden', input: { ...j.input, messages: undefined }, output: j.output ? { ...j.output, text: j.output.text === undefined ? undefined : '[hidden]' } : undefined })), payouts: n.payouts } };
       if (action === 'payouts') {
         const amt = Number(b.amountMicro);
         if (!amt || amt > n.balance) return { status: 400, body: err('amount exceeds balance') };
         if (b.rail === 'credits') return { status: 200, body: { payout: { id: id('po'), status: 'sent', rail: 'credits', amountMicro: amt } } };
+        if (amt < PAYOUT_MIN_MICRO) return { status: 400, body: err(`minimum payout for ${b.rail} is $${PAYOUT_MIN_MICRO / 1e6}`) };
         n.balance -= amt;
-        return { status: 200, body: { payout: { id: id('po'), status: 'pending', rail: b.rail, amountMicro: amt } } };
+        const p = { id: id('po'), status: 'pending', rail: b.rail, amountMicro: amt, createdAt: Date.now() };
+        n.payouts.unshift(p);
+        return { status: 200, body: { payout: p } };
       }
     }
     return { status: 404, body: err('not found') };

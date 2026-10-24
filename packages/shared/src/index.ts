@@ -28,6 +28,33 @@ export interface NodeCapabilities {
   pricePer1k: number;
   /** Rough throughput the node claims, used as a tie-breaker. */
   tokensPerSec?: number;
+  /** What the node is running on. Self-reported; the benchmark on registration is what pricing trusts. */
+  hardware?: {
+    gpu?: string;       // e.g. "NVIDIA GeForce RTX 4070"
+    vramGb?: number;
+    tier?: HardwareTier;
+  };
+}
+
+/** Coarse hardware classes used for suggested pricing and the earnings table. */
+export type HardwareTier = 'cpu' | 'gpu-8' | 'gpu-16' | 'gpu-24' | 'gpu-48' | 'gpu-80';
+
+export const TIER_LABEL: Record<HardwareTier, string> = {
+  cpu: 'CPU only',
+  'gpu-8': 'GPU, up to 8 GB',
+  'gpu-16': 'GPU, 12–16 GB',
+  'gpu-24': 'GPU, 20–24 GB',
+  'gpu-48': 'GPU, 32–48 GB',
+  'gpu-80': 'GPU, 80 GB+',
+};
+
+export function tierForVram(vramGb: number | undefined): HardwareTier {
+  if (!vramGb || vramGb < 4) return 'cpu';
+  if (vramGb <= 8) return 'gpu-8';
+  if (vramGb <= 16) return 'gpu-16';
+  if (vramGb <= 24) return 'gpu-24';
+  if (vramGb <= 48) return 'gpu-48';
+  return 'gpu-80';
 }
 
 export interface NodeRecord {
@@ -131,6 +158,8 @@ export interface LedgerEntry {
 
 export interface NetworkStats {
   nodesOnline: number;
+  /** Every node that has ever registered with this router. Real count, not a target. */
+  nodesRegistered: number;
   nodesByClass: Record<NodeClass, number>;
   jobsQueued: number;
   jobsRunning: number;
@@ -180,6 +209,9 @@ export function fmtCredits(micro: number, digits = 2): string {
 
 export const PRICE_FLOOR_PER_1K = 200;      // 0.0002 cr
 export const FREE_GRANT_MICRO = 50_000;     // 0.05 cr per anonymous session
+/** One credit is one US dollar for business pricing and payouts. */
+export const USD_PER_CREDIT = 1;
+export const PAYOUT_MIN_MICRO = 50 * MICRO;  // $50 before SOL or USDC can be requested
 export const LEASE_MS = 90_000;
 export const HEARTBEAT_MS = 10_000;
 export const OFFLINE_AFTER_MS = 35_000;

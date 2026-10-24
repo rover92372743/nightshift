@@ -1,8 +1,8 @@
 # Docket
 
-Docket is a router for inference. You send it a request in the OpenAI chat format. It finds the cheapest machine on the network that can run that request, runs it there, and gives you the answer along with a receipt. The receipt is signed twice: once by the machine that did the work, once by the router that checked it.
+Docket is a router for inference across other people's GPUs. A business sends work in the OpenAI chat format. The router finds the cheapest machine on the network that can run it, runs it there, verifies what comes back, and returns the answer with a receipt. The receipt is signed twice: once by the machine that did the work, once by the router that checked it.
 
-Those machines can be anything. Right now the two kinds that exist are browser tabs (someone opened the Earn page and pressed start) and native workers (the script in `apps/api/scripts`). Cloud cards and external APIs have a slot in the design but are switched off on this router.
+The machines belong to node operators who run the agent and are paid per task by their hardware class. Cloud cards and external APIs have a slot in the design but are switched off on this router.
 
 ## What's actually in the box
 
@@ -19,7 +19,8 @@ Everything is built around the receipt. A node can't claim it did work without s
 - [Quickstart](/docs/quickstart): run it locally in two commands.
 - [API](/docs/api): every endpoint with curl examples.
 - [Receipts](/docs/receipts): the exact bytes that get signed.
-- [Run a node](/docs/run-a-node): from a tab or a terminal.
+- [Earning](/docs/earning): what node operators are paid, by hardware class, and how to cash out.
+- [Run a node](/docs/run-a-node): the agent, its settings, serving model tasks.
 - [Privacy](/docs/privacy): what each party can see. Pseudonymous, not anonymous.
 - [Pricing and credits](/docs/pricing-and-credits): how a job is quoted, charged and paid.
 - [Architecture](/docs/architecture): the job lifecycle and why nodes pull.

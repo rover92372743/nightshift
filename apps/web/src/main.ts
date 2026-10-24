@@ -4,7 +4,6 @@ import { setNavigate } from './lib/nav';
 import { live } from './lib/live';
 import { homePage } from './pages/home';
 import { networkPage } from './pages/network';
-import { chatPage } from './pages/chat';
 import { earnPage } from './pages/earn';
 import { pricingPage } from './pages/pricing';
 import { receiptsPage } from './pages/receipts';
@@ -21,7 +20,6 @@ type Route = { path: RegExp; make: (params: string[]) => Page | Promise<Page> };
 const routes: Route[] = [
   { path: /^\/$/, make: () => homePage() },
   { path: /^\/network\/?$/, make: () => networkPage() },
-  { path: /^\/chat\/?$/, make: () => chatPage() },
   { path: /^\/earn\/?$/, make: () => earnPage() },
   { path: /^\/pricing\/?$/, make: () => pricingPage() },
   { path: /^\/receipts(?:\/([^/]+))?\/?$/, make: (p) => receiptsPage(p[0]) },
@@ -58,7 +56,6 @@ function topbar(): void {
   const nav = h(
     'nav',
     { class: 'nav', 'aria-label': 'Primary' },
-    h('a', { href: '/chat' }, 'Chat'),
     h('a', { href: '/network' }, 'Network'),
     h('a', { href: '/earn' }, 'Earn'),
     h('a', { href: '/pricing' }, 'Pricing'),
@@ -80,7 +77,7 @@ function topbar(): void {
       { class: 'container' },
       h('a', { class: 'brand', href: '/' }, mark, 'Docket'),
       nav,
-      h('div', { class: 'topbar-right' }, pulse, h('a', { class: 'btn sm', href: '/docs/quickstart' }, 'Get a key'), menu),
+      h('div', { class: 'topbar-right' }, pulse, h('a', { class: 'btn sm', href: '/pricing' }, 'For businesses'), menu),
     ),
   );
   window.addEventListener('scroll', () => bar.classList.toggle('is-scrolled', window.scrollY > 8), { passive: true });
@@ -95,6 +92,7 @@ function topbar(): void {
         null,
         h('a', { href: '/docs' }, 'Docs'),
         h('a', { href: '/docs/api' }, 'API'),
+        h('a', { href: '/docs/earning' }, 'Earning'),
         h('a', { href: '/docs/run-a-node' }, 'Run a node'),
         h('a', { href: '/receipts' }, 'Verify a receipt'),
       ),

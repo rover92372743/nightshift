@@ -17,6 +17,8 @@ export interface NodeClientOptions {
   label: string;
   capabilities: NodeCapabilities;
   fetch?: typeof fetch;
+  /** Read-only tools pass true so they never overwrite the running worker's settings. */
+  lookupOnly?: boolean;
 }
 
 export type WorkFn = (job: JobRecord, signal: AbortSignal) => Promise<JobOutput>;
@@ -51,6 +53,7 @@ export class NodeClient {
         label: this.opts.label,
         publicKey: this.opts.signer.publicKey,
         capabilities: this.opts.capabilities,
+        lookupOnly: this.opts.lookupOnly,
       }),
     });
     const data = await res.json();

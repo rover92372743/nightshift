@@ -386,11 +386,18 @@ export class Router {
     return rows.map(rowToJob);
   }
 
+  /** A node's own history, with the customer's text removed. Operators see work, not content. */
   recentForNode(nodeId: string, limit = 20): JobRecord[] {
     const rows = this.db
       .prepare('SELECT * FROM jobs WHERE node_id=? ORDER BY created_at DESC LIMIT ?')
       .all(nodeId, limit) as Array<Record<string, unknown>>;
-    return rows.map(rowToJob);
+    return rows.map(rowToJob).map(withoutContent);
+  }
+
+  /** Uptime in ms over the last 24h, from heartbeat gaps. Approximate; good enough for a dashboard. */
+  nodeUptime24h(nodeId: string): number {
+    const row = this.db.prepare('SELECT online_ms_24h FROM nodes WHERE id=?').get(nodeId) as { online_ms_24h: number } | undefined;
+    return row?.online_ms_24h ?? 0;
   }
 
   /** Blocks (via polling) until a job is terminal or the timeout passes. Used by the OpenAI-style endpoint. */
@@ -407,6 +414,16 @@ export class Router {
 }
 
 // --- helpers ----------------------------------------------------------------
+
+export function withoutContent(job: JobRecord): JobRecord {
+  const input = { ...job.input };
+  if (input.messages) {
+    input.messages = undefined;
+    (input as JobInput & { messageCount?: number }).messageCount = job.input.messages!.length;
+  }
+  const output = job.output ? { ...job.output, text: job.output.text === undefined ? undefined : '[hidden]' } : undefined;
+  return { ...job, input, output, requesterId: 'hidden' };
+}
 
 function pickCheapest(cands: NodeRecord[]): NodeRecord {
   // Cheapest first, then faster claimed throughput, then the one that's been

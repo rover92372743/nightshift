@@ -11,6 +11,7 @@ interface RegisterBody {
   label: string;
   publicKey: string;
   capabilities: NodeCapabilities;
+  lookupOnly?: boolean;
 }
 
 interface CompleteBody {
@@ -42,8 +43,9 @@ export function nodeRoutes(ctx: Ctx): FastifyPluginAsync {
             label: String(b.label ?? 'unnamed'),
             publicKey: b.publicKey,
             capabilities: b.capabilities,
+            lookupOnly: Boolean(b.lookupOnly),
           });
-          ctx.router.dispatch();
+          if (!b.lookupOnly) ctx.router.dispatch();
           return { node, routerKey: ctx.routerKey.publicKey };
         } catch (err) {
           reply.code(400);
@@ -105,6 +107,8 @@ export function nodeRoutes(ctx: Ctx): FastifyPluginAsync {
       const acct = ctx.nodes.accountId(nodeId);
       return {
         node,
+        uptimeMs24h: ctx.router.nodeUptime24h(nodeId),
+        payoutMinMicro: ctx.payouts.minimumMicro('usdc'),
         balanceMicro: ctx.ledger.balance(acct),
         ledger: ctx.ledger.entries(acct, 30),
         jobs: ctx.router.recentForNode(nodeId, 20),

@@ -4,22 +4,7 @@ A node is anything that can register a public key, poll for work, do it, and sig
 
 ## From a browser tab
 
-Open `/earn`, pick a name and a price, press start. What happens:
-
-1. The page generates an ed25519 key pair the first time and keeps the secret in `localStorage`. The router never sees it. Clear site data and you're a new node with a zero balance, so don't. The default name is a random two-word label that says nothing about your browser or OS; see [Privacy](/docs/privacy) for everything the router and the public can see.
-2. If "Serve the chat model" is on, a Web Worker loads a small instruct model through transformers.js. WebGPU if the browser has it, CPU otherwise. The download is a few hundred megabytes once; the browser caches the weights.
-3. The tab registers, then loops: claim, work, complete, repeat. While the tab is hidden, or the battery is under 20% and not charging, it heartbeats as busy and takes nothing.
-4. Leaving the Earn page stops the node. A worker you can't see is a worker you'll forget about.
-
-Earnings and recent jobs refresh every ten seconds from `GET /v1/nodes/:id/me`.
-
-### Setting a price
-
-The price is in micro-credits per thousand output tokens (or per thousand compute units). The floor is 200. The router routes to the cheapest node that can take a job, so a lower price means more work and a higher price means less. There's no clever auction; it's just a sort.
-
-### Size limits
-
-"Max output tokens per job" is a hard cap the router respects when matching. A job asking for more than you allow won't be routed to you. Prompt size is capped at 6,000 characters for browser nodes.
+The Earn page can start a lightweight node inside the tab: CPU only, compute tasks only, pauses when the tab is hidden, stops when you leave the page. It exists so people can see the flow before installing anything. Real earnings come from the agent.
 
 ## From a terminal
 
@@ -32,12 +17,37 @@ Environment:
 | Variable | Default | Meaning |
 |---|---|---|
 | `DOCKET_URL` | `http://localhost:8787` | The router |
-| `DOCKET_LABEL` | `<hostname> (cli)` | Name on the map |
-| `DOCKET_PRICE` | `250` | µcr per 1k units |
+| `DOCKET_LABEL` | `<hostname> (gpu)` or `(cli)` | Name on the map. Pick something that doesn't identify you |
+| `DOCKET_PRICE` | by hardware class | µcr per 1k units. Floor is 200 |
+| `DOCKET_LLM_URL` | unset | An OpenAI-compatible server on this machine, e.g. `http://localhost:8080/v1` |
+| `DOCKET_MODELS` | unset | Comma-separated model names you serve, as customers will ask for them |
+| `DOCKET_MAX_OUT` | `1024` | Max output tokens per task |
+
+On startup the agent runs `nvidia-smi` (or `system_profiler` on a Mac) to find the GPU and its memory, assigns a hardware class, and picks the suggested price for that class unless you set one. The class and price are visible on the map and in `npm run cli`.
 
 The key is kept at `~/.docket/worker.key`. Same rule: lose it, lose the node.
 
-As shipped, the terminal worker serves `compute` only. It's a hundred lines in `apps/api/scripts/headless-worker.mjs` and the interesting part is the `work` function:
+### Serving model tasks
+
+Run any OpenAI-compatible server locally and point the agent at it:
+
+```sh
+# llama.cpp
+llama-server -m qwen2.5-7b-instruct-q4_k_m.gguf --port 8080
+DOCKET_LLM_URL=http://localhost:8080/v1 DOCKET_MODELS=qwen2.5-7b-instruct npm run worker
+
+# Ollama
+ollama serve
+DOCKET_LLM_URL=http://localhost:11434/v1 DOCKET_MODELS=llama3.1:8b npm run worker
+```
+
+The agent checks the server answers before advertising `llm`. Model names are free-form strings matched exactly; customers have to ask for the name you list.
+
+### Customer data
+
+The agent sends task text to your local model server and returns the result. It does not print, log or write that text anywhere, and the earnings views never show it. Your model server may log requests; check its settings if that matters to you. See [Privacy](/docs/privacy).
+
+The compute path is the `work` function in `apps/api/scripts/headless-worker.mjs`:
 
 ```js
 async function work(job) {
@@ -47,12 +57,6 @@ async function work(job) {
   return { digest, outputTokens: 0, units: Math.ceil(job.input.rounds / 1000), durationMs: Date.now() - t0 };
 }
 ```
-
-### Adding an llm backend
-
-Add `'llm'` to `workloads` and the model names you serve to `models` in the capabilities, then handle `job.input.workload === 'llm'` in `work`. The job gives you `messages`, `maxOutputTokens` and `temperature`; you return `{ text, outputTokens, units: outputTokens, durationMs }`. Anything that produces text works: llama.cpp over HTTP, Ollama, vLLM, a GPU you rent. Report the real token count; the router caps it against the text length anyway.
-
-Model names are free-form strings matched exactly. The browser worker uses `qwen2.5-0.5b-instruct`. If you serve something else, requests have to ask for it by that name.
 
 ## Writing your own
 

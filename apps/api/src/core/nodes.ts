@@ -16,13 +16,19 @@ export class Nodes {
     label: string;
     publicKey: string;
     capabilities: NodeCapabilities;
+    /** True from read-only tools (the CLI): find the node for this key without touching its settings. */
+    lookupOnly?: boolean;
   }): NodeRecord {
-    const caps = sanitiseCaps(input.capabilities);
-    if (!CLASSES.includes(input.class)) throw new Error('bad node class');
-
     const existing = this.db.prepare('SELECT id FROM nodes WHERE public_key = ?').get(input.publicKey) as
       | { id: string }
       | undefined;
+    if (input.lookupOnly) {
+      if (!existing) throw new Error('no node registered with this key; run the worker first');
+      return this.get(existing.id)!;
+    }
+
+    const caps = sanitiseCaps(input.capabilities);
+    if (!CLASSES.includes(input.class)) throw new Error('bad node class');
 
     const t = nowMs();
     if (existing) {
@@ -51,6 +57,7 @@ export class Nodes {
   }
 
   heartbeat(nodeId: string, busy: boolean): boolean {
+    this.creditUptime(nodeId);
     const r = this.db
       .prepare("UPDATE nodes SET last_seen=?, status=? WHERE id=? AND status != 'offline'")
       .run(nowMs(), busy ? 'busy' : 'online', nodeId);
@@ -104,6 +111,23 @@ export class Nodes {
     });
   }
 
+  /**
+   * Add the gap since the last heartbeat to today's uptime, capped at the
+   * offline threshold so a reconnect after an hour doesn't count the hour.
+   * The counter resets when the UTC day changes.
+   */
+  private creditUptime(nodeId: string): void {
+    const row = this.db.prepare('SELECT last_seen, status, uptime_day FROM nodes WHERE id=?').get(nodeId) as
+      | { last_seen: number; status: string; uptime_day: number }
+      | undefined;
+    if (!row || row.status === 'offline') return;
+    const t = nowMs();
+    const day = Math.floor(t / 86_400_000);
+    const gap = Math.min(OFFLINE_AFTER_MS, Math.max(0, t - row.last_seen));
+    if (row.uptime_day !== day) this.db.prepare('UPDATE nodes SET online_ms_24h=?, uptime_day=? WHERE id=?').run(gap, day, nodeId);
+    else this.db.prepare('UPDATE nodes SET online_ms_24h=online_ms_24h+? WHERE id=?').run(gap, nodeId);
+  }
+
   accountId(nodeId: string): string {
     return `nacct_${nodeId}`;
   }
@@ -129,6 +153,9 @@ function sanitiseCaps(c: Partial<NodeCapabilities>): NodeCapabilities {
     maxOutputTokens: clamp(c.maxOutputTokens ?? 256, 16, 2048),
     pricePer1k: Math.max(PRICE_FLOOR_PER_1K, Math.floor(c.pricePer1k ?? PRICE_FLOOR_PER_1K)),
     tokensPerSec: c.tokensPerSec ? clamp(c.tokensPerSec, 0.1, 5000) : undefined,
+    hardware: c.hardware
+      ? { gpu: c.hardware.gpu ? String(c.hardware.gpu).slice(0, 64) : undefined, vramGb: c.hardware.vramGb ? clamp(c.hardware.vramGb, 0, 1024) : undefined, tier: c.hardware.tier }
+      : undefined,
   };
 }
 

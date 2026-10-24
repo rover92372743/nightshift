@@ -9,8 +9,8 @@ A node's earnings sit in its ledger account as credits. There are three things a
 | Rail | What happens | Status |
 |---|---|---|
 | `credits` | Nothing. Credits are already spendable on inference. Returns `sent` immediately. | Works |
-| `usdc` | Debits the credits, records a payout row as `pending`, returns it. | Stub |
-| `sol` | Same as above. | Stub |
+| `usdc` | From $50. Debits the credits, records a payout row as `pending`, returns it. | Stub |
+| `sol` | From $50. Same as above. | Stub |
 
 For the two chain rails, the router validates the address shape (base58, 32–44 characters), debits the amount so it can't be double-spent, and then calls a `PayoutAdapter`. The adapter that ships is `ManualAdapter`, which throws `PayoutPending` and leaves the row for a human. There is no signer, no treasury and no RPC connection in this codebase. If you tell people they'll get paid in USDC, you are promising to go settle those rows yourself.
 
@@ -34,7 +34,7 @@ ctx.payouts.use(new SolanaUsdcAdapter({ rpc, treasuryKeypair, mint, microPerUsdc
 
 `send` runs after the credits are debited. Return a tx signature and the payout flips to `sent`. Throw anything other than `PayoutPending` and the payout is marked `failed` and the credits are refunded in the same transaction. Decide the exchange rate inside the adapter; the router has no opinion about what a credit is worth.
 
-Minimum off-platform payout is 1 credit. Change `Payouts.minimumMicro` if your rail's fees make that silly.
+Minimum off-platform payout is $50 (`PAYOUT_MIN_MICRO` in the shared package). Credits can be kept and spent at any amount.
 
 ## Tiers
 

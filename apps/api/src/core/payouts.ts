@@ -11,6 +11,7 @@
 import type { Db } from '../db/index.js';
 import { id, nowMs } from '../db/index.js';
 import type { Ledger } from './ledger.js';
+import { PAYOUT_MIN_MICRO } from '@docket/shared';
 
 export type Rail = 'credits' | 'usdc' | 'sol';
 
@@ -64,12 +65,12 @@ export class Payouts {
   }
 
   minimumMicro(rail: Rail): number {
-    return rail === 'credits' ? 1 : 1_000_000; // 1 credit minimum to go off-platform
+    return rail === 'credits' ? 1 : PAYOUT_MIN_MICRO; // $50 before anything leaves the platform
   }
 
   async request(accountId: string, amountMicro: number, rail: Rail, address?: string): Promise<PayoutRequest> {
     if (!Number.isInteger(amountMicro) || amountMicro <= 0) throw new Error('amount must be a positive integer of micro-credits');
-    if (amountMicro < this.minimumMicro(rail)) throw new Error(`minimum for ${rail} is ${this.minimumMicro(rail)} micro-credits`);
+    if (amountMicro < this.minimumMicro(rail)) throw new Error(`minimum payout for ${rail} is ${this.minimumMicro(rail) / 1_000_000} credits ($${this.minimumMicro(rail) / 1_000_000})`);
 
     if (rail === 'credits') {
       // Nothing to do: credits already live in the account and can be spent.

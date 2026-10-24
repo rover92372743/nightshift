@@ -34,6 +34,8 @@ export function id(prefix: string): string {
 // them to an existing file, so check and add. Keep this list in order.
 const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
   ['jobs', 'scrubbed', 'INTEGER NOT NULL DEFAULT 0'],
+  ['nodes', 'online_ms_24h', 'INTEGER NOT NULL DEFAULT 0'],
+  ['nodes', 'uptime_day', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 function migrate(db: Db): void {

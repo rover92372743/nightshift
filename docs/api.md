@@ -48,7 +48,7 @@ Response: the standard `chat.completion` object with an extra `docket` field.
 }
 ```
 
-Statuses you'll see: `402` not enough credits, `413` prompt too long, `429` rate limited (20 per minute per address by default), `502` the job failed, `504` nothing picked it up in time. On a 504 the job stays queued; you can poll it by `job_id`.
+The web app no longer has a chat page; this endpoint is for your code. Statuses you'll see: `402` not enough credits, `413` prompt too long, `429` rate limited (20 per minute per address by default), `502` the job failed, `504` nothing picked it up in time. On a 504 the job stays queued; you can poll it by `job_id`.
 
 ### `POST /v1/jobs`
 

@@ -18,6 +18,7 @@ export function networkStats(db: Db): NetworkStats {
   const c = (s: string) => counts.find((r) => r.status === s)?.n ?? 0;
 
   const units = (db.prepare('SELECT COALESCE(SUM(units_verified),0) AS u FROM nodes').get() as { u: number }).u;
+  const registered = (db.prepare('SELECT COUNT(*) AS n FROM nodes').get() as { n: number }).n;
 
   const since = Date.now() - 3600_000;
   const lat = db
@@ -36,6 +37,7 @@ export function networkStats(db: Db): NetworkStats {
   const failed = c('failed');
   return {
     nodesOnline,
+    nodesRegistered: registered,
     nodesByClass: byClass,
     jobsQueued: c('queued'),
     jobsRunning: c('assigned') + c('running'),

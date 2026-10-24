@@ -81,17 +81,17 @@ export function homePage(): Page {
     return { el: h('div', null, n, h('div', { class: 'l' }, label)), n };
   };
   const cNodes = cell('nodes online');
-  const cDone = cell('jobs completed');
+  const cReg = cell('nodes registered');
+  const cDone = cell('tasks completed');
   const cUnits = cell('work units verified');
-  const cP50 = cell('median turnaround');
   const cRate = cell('success rate');
-  const strip = h('div', { class: 'strip reveal' }, cNodes.el, cDone.el, cUnits.el, cP50.el, cRate.el);
+  const strip = h('div', { class: 'strip reveal' }, cNodes.el, cReg.el, cDone.el, cUnits.el, cRate.el);
 
   function applyStats(s: NetworkStats): void {
     tweenNumber(cNodes.n, s.nodesOnline);
+    tweenNumber(cReg.n, s.nodesRegistered);
     tweenNumber(cDone.n, s.jobsDone);
     tweenNumber(cUnits.n, s.unitsVerified);
-    tweenNumber(cP50.n, s.p50Ms, (n) => (s.jobsDone ? fmtMs(n) : '—'));
     tweenNumber(cRate.n, s.successRate * 100, (n) => (s.jobsDone + s.jobsFailed ? `${n.toFixed(1)}%` : '—'));
   }
 
@@ -102,7 +102,7 @@ export function homePage(): Page {
   });
 
   // --- headline: words rise one at a time ---------------------------------
-  const words = 'Every answer comes with a receipt.'.split(' ');
+  const words = 'GPU swarms, with receipts.'.split(' ');
   const h1 = h(
     'h1',
     { class: 'hero-title' },
@@ -127,13 +127,13 @@ export function homePage(): Page {
           h(
             'p',
             { class: 'lede reveal', 'data-delay': '2' },
-            'One endpoint for inference. Each request runs on the cheapest machine that can take it and comes back signed by that machine and by the router that checked it. The dots behind this text are the network, live.',
+            'Businesses send batches of work to one endpoint. The router spreads them across independent GPUs, verifies what comes back, and signs a receipt for every task. The dots behind this text are the network, live.',
           ),
           h(
             'div',
             { class: 'actions reveal', 'data-delay': '3' },
-            h('a', { class: 'btn', href: '/chat' }, 'Try the chat'),
-            h('a', { class: 'btn stamp', href: '/earn' }, 'Put your computer to work'),
+            h('a', { class: 'btn', href: '/pricing' }, 'Rent GPU capacity'),
+            h('a', { class: 'btn stamp', href: '/earn' }, 'Earn with your GPU'),
             testBtn,
           ),
           testNote,
@@ -157,18 +157,18 @@ export function homePage(): Page {
           h(
             'div',
             { class: 'card reveal' },
-            h('h3', null, 'Use the network'),
-            h('p', { class: 'muted' }, 'Point an OpenAI-compatible client at the endpoint. You get a completion plus a receipt id you can check any time.'),
-            h('ul', null, h('li', null, 'Same request and response shape you already use'), h('li', null, 'Pay only for tokens that came back; the hold is refunded'), h('li', null, 'Hard caps on prompt size and output length')),
-            h('div', { class: 'row' }, h('a', { class: 'btn', href: '/docs/quickstart' }, 'Get a key'), h('a', { class: 'btn secondary', href: '/chat' }, 'Chat first')),
+            h('h3', null, 'For businesses'),
+            h('p', { class: 'muted' }, 'Point an OpenAI-compatible client at the endpoint, or send a batch. Work is spread across the swarm and every task comes back with a signed receipt naming the machine that ran it.'),
+            h('ul', null, h('li', null, 'Pay per task, by hardware class; no idle GPU bills'), h('li', null, 'Compute tasks are re-run as spot checks; results you can prove'), h('li', null, 'Task text is wiped from the router ten minutes after completion')),
+            h('div', { class: 'row' }, h('a', { class: 'btn', href: '/pricing' }, 'See pricing'), h('a', { class: 'btn secondary', href: '/docs/api' }, 'API reference')),
           ),
           h(
             'div',
             { class: 'card reveal', 'data-delay': '1' },
-            h('h3', null, 'Power the network'),
-            h('p', { class: 'muted' }, 'Open the Earn page and press start. The tab registers as a node, loads a small model, and takes jobs while it is in the foreground.'),
-            h('ul', null, h('li', null, 'Your key stays in your browser; the router only sees signatures'), h('li', null, 'Set your own price and size limits; the router never forces a job on you'), h('li', null, 'Earnings post to your ledger on every receipt')),
-            h('div', { class: 'row' }, h('a', { class: 'btn stamp', href: '/earn' }, 'Start a node'), h('a', { class: 'btn secondary', href: '/docs/run-a-node' }, 'Run one from a terminal')),
+            h('h3', null, 'For node operators'),
+            h('p', { class: 'muted' }, 'Run the agent on a machine with a GPU. It takes tasks while it is online, signs a receipt for each, and your earnings post to a balance you can cash out in SOL or USDC from $50.'),
+            h('ul', null, h('li', null, 'Paid per task, at a rate set by your hardware class'), h('li', null, 'You never see task content; the agent processes it and forgets it'), h('li', null, 'Your key is your account; it never leaves your machine')),
+            h('div', { class: 'row' }, h('a', { class: 'btn stamp', href: '/earn' }, 'Start earning'), h('a', { class: 'btn secondary', href: '/docs/earning' }, 'How earnings work')),
           ),
         ),
       ),
