@@ -43,7 +43,7 @@ const usd = (micro: number) => `$${(micro / 1e6).toFixed(micro && micro < 10_000
 const hm = (ms: number) => `${Math.floor(ms / 3600000)}h ${String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0')}m`;
 
 interface Me {
-  node: { id: string; label: string; status: string; capabilities: { pricePer1k: number; hardware?: { gpu?: string; vramGb?: number; tier?: keyof typeof TIER_LABEL } }; jobsDone: number; jobsFailed: number; unitsVerified: number; earnedMicro: number };
+  node: { id: string; label: string; status: string; capabilities: { pricePer1k: number; pricePerHour?: number; hardware?: { gpu?: string; vramGb?: number; tier?: keyof typeof TIER_LABEL } }; jobsDone: number; jobsFailed: number; unitsVerified: number; earnedMicro: number };
   uptimeMs24h: number;
   payoutMinMicro: number;
   balanceMicro: number;
@@ -73,7 +73,7 @@ export function earnPage(): Page {
       line('node', `${n.label}  ${n.id}`),
       line('status', n.status),
       line('hardware', `${hw?.gpu ?? 'not reported'}${hw?.vramGb ? `, ${hw.vramGb} GB` : ''}${hw?.tier ? `  (${TIER_LABEL[hw.tier]})` : ''}`),
-      line('price', `${n.capabilities.pricePer1k} µcr per 1k units`),
+      line('price', `$${((n.capabilities.pricePerHour ?? 0) / 1e6).toFixed(2)} per hour · ${n.capabilities.pricePer1k} µcr per 1k units`),
       line('uptime', `${hm(me.uptimeMs24h)} today`),
       '',
       line('balance', `${usd(me.balanceMicro)}  spendable or payable`),

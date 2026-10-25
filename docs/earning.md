@@ -8,26 +8,28 @@ Two ways to run a node. Both earn to a key, both sign a receipt per task, both c
 
 ## What you get paid for
 
-**Tasks.** Each task pays by its size (output tokens for model work, work units for compute) at the rate for your hardware class. Rates are set by the router operator and published on the Pricing page; node operators receive 80% of the list rate. The other 20% funds verification and the router.
+**Tasks, two ways.** A customer's job is billed either by the second your card held it (card-hour billing, the main way businesses buy capacity) or by the output it produced (per-token billing, for small open models). The router measures the seconds on its own clock, from the moment you claimed the job to the moment you completed it. You are paid 80% of the list rate for your hardware class; the other 20% funds verification and the router.
 
-The list rates at the time of writing, with the operator share:
+List rates at the time of writing, and what reaches you:
 
-| Hardware class | Typical work | List rate per 1k | You receive per 1k |
-|---|---|---|---|
-| CPU only | compute tasks, tiny models | $0.0004 | $0.00032 |
-| GPU up to 8 GB | 1–3B models, embeddings | $0.0008 | $0.00064 |
-| GPU 12–16 GB | 7–8B models, image generation | $0.0014 | $0.00112 |
-| GPU 20–24 GB | 13B models, quantised 30B | $0.0022 | $0.00176 |
-| GPU 32–48 GB | 30–34B models | $0.0040 | $0.0032 |
-| GPU 80 GB+ | 70B models, long contexts | $0.0070 | $0.0056 |
+| Hardware class | Typical work | List per card-hour | You receive per card-hour | List per 1M output tokens | You receive per 1M |
+|---|---|---|---|---|---|
+| CPU only | compute tasks, data prep | $0.03 | $0.024 | — | — |
+| GPU up to 8 GB | 1–3B models, embeddings | $0.12 | $0.096 | $0.15 | $0.12 |
+| GPU 12–16 GB | 7–8B models, image generation | $0.20 | $0.16 | $0.20 | $0.16 |
+| GPU 20–24 GB | 13B models, image and video pipelines | $0.32 | $0.256 | $0.30 | $0.24 |
+| GPU 32–48 GB | 30–34B models, LoRA fine-tuning | $0.75 | $0.60 | $0.50 | $0.40 |
+| GPU 80 GB+ | 70B models, full fine-tunes | $1.75 | $1.40 | $0.90 | $0.72 |
 
-To make that concrete: a 16 GB card serving 7B-model tasks that average 300 output tokens earns about $0.00034 per task. At one task every ten seconds, that's about $0.12 an hour, $2.90 a day, if the work is there. Whether the work is there depends entirely on customer demand, and the Network page shows the real queue. Nobody is paid for tasks that didn't run.
+Concretely: a 16 GB card that is busy for a full hour on card-hour work earns $0.16. A 4090 (24 GB) earns about $0.26 an hour while busy, $6 a day if it is busy around the clock. Whether it is busy depends on customer demand, and the Network page shows the real queue. Nobody is paid for hours that weren't worked.
 
-**The agent chooses the class** by detecting your GPU and its memory on startup. A browser tab can see the GPU's name but not its memory, and browsers only run small models, so tab nodes with a GPU are classed as 'GPU up to 8 GB' and tabs without WebGPU as 'CPU only'. You can set your own price above the class floor with `DOCKET_PRICE`; the router routes to the cheapest capable node, so a higher price means fewer tasks.
+Why those numbers: hosted APIs serve small open models for a few tenths of a dollar per million tokens, so per-token rates here have to sit near that or nobody buys. Card-hours are where a consumer GPU beats a datacenter: a cloud 24 GB card runs around $1 an hour on demand, so there is room to charge $0.32, pay you $0.26, and still be the cheap option. Check current cloud prices; the gap moves.
+
+**Your class and rate** are set by the agent from your GPU's memory on startup. You can set your own hourly rate (`DOCKET_HOURLY`) or per-1k rate (`DOCKET_PRICE`) above the floor. The router sends each job to the cheapest capable node, so a higher rate means fewer jobs. A browser tab with a GPU is classed as 'up to 8 GB' because browsers only run small models and cannot report memory.
 
 ## What you are not paid for
 
-- Being online with no tasks. There is no uptime payment on this router unless the operator announces one, in which case it will be labelled as what it is: a launch incentive paid by the operator, not customer revenue.
+- Being online with no tasks. Card-hour billing starts when you claim a job and stops when you complete it. Idle time is yours. There is no uptime payment on this router unless the operator announces one, in which case it will be labelled as what it is: a launch incentive paid by the operator, not customer revenue.
 - Tasks that fail verification. Compute tasks are re-run by the router; a wrong answer is not paid and counts against your node.
 - Tasks you decline or that time out. Your lease on a task is 90 seconds; past that it goes back to the queue.
 

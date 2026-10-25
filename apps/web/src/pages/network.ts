@@ -1,4 +1,5 @@
-import type { LiveEvent, NetworkStats, NodeClass, PublicNode } from '@docket/shared';
+import type { LiveEvent, NetworkStats, NodeClass, PublicNode, HardwareTier } from '@docket/shared';
+import { TIER_LABEL } from '@docket/shared';
 import { h, clear, tweenNumber, fmtMs, fmtCr, timeHM, mountReveals } from '../lib/dom';
 import { live } from '../lib/live';
 import { api } from '../lib/api';
@@ -23,6 +24,24 @@ export function networkPage(): Page {
     map.appendChild(h('div', { class: 'col' }, h('div', { class: 'col-h' }, h('b', null, c.label), count), cells, h('p', { class: 'small muted' }, c.blurb)));
   }
   const cellByNode = new Map<string, HTMLElement>();
+
+  // --- hardware on the network, by class. Real counts; shows zeros honestly. ---
+  const hw = h('div', { class: 'hw' });
+  function rebuildHw(nodes: Iterable<PublicNode>): void {
+    const tiers = Object.keys(TIER_LABEL) as HardwareTier[];
+    const count = new Map<HardwareTier, PublicNode[]>(tiers.map((t) => [t, []]));
+    for (const n of nodes) {
+      const t = n.capabilities.hardware?.tier ?? (n.class === 'browser' ? 'cpu' : 'cpu');
+      count.get(t)!.push(n);
+    }
+    hw.replaceChildren(
+      ...tiers.map((t) => {
+        const list = count.get(t)!;
+        const names = Array.from(new Set(list.map((n) => n.capabilities.hardware?.gpu).filter(Boolean))) as string[];
+        return h('div', { class: 'hw-tile', title: names.join(', ') }, h('b', null, String(list.length)), h('span', null, TIER_LABEL[t]), h('small', null, names.length ? names.slice(0, 2).join(', ') + (names.length > 2 ? ` +${names.length - 2}` : '') : list.length ? 'GPU not reported' : 'none online'));
+      }),
+    );
+  }
 
   // --- the big live map -------------------------------------------------
   const canvas = h('canvas', { class: 'console-field', 'aria-label': 'Live map of nodes around the router' });
@@ -52,12 +71,14 @@ export function networkPage(): Page {
   const consoleEl = h('div', { class: 'console' }, canvas, readout, pinned);
 
   function rebuild(nodes: Iterable<PublicNode>): void {
+    rebuildHw(Array.from(nodes));
+    nodes = live.nodes.values();
     for (const { cells } of cols.values()) clear(cells);
     cellByNode.clear();
     const per = new Map<NodeClass, number>();
     for (const n of nodes) {
       const col = cols.get(n.class)!;
-      const cell = h('div', { class: `cell ${n.status}`, title: `${n.label} · ${n.jobsDone} done · ${n.capabilities.pricePer1k} µcr/1k` });
+      const cell = h('div', { class: `cell ${n.status}`, title: `${n.label} · ${n.capabilities.hardware?.gpu ?? n.class} · ${n.jobsDone} done · $${((n.capabilities.pricePerHour ?? 0) / 1e6).toFixed(2)}/h` });
       col.cells.appendChild(cell);
       cellByNode.set(n.id, cell);
       per.set(n.class, (per.get(n.class) ?? 0) + 1);
@@ -197,6 +218,7 @@ export function networkPage(): Page {
     h('div', { class: 'section-head reveal' }, h('h1', null, 'The network, right now'), h('p', null, 'Every dot is a real node talking to this router. Blue packets are jobs going out, green ones are receipts coming back. Hover, click, watch.')),
     h('div', { class: 'reveal', 'data-delay': '1' }, strip),
     h('div', { class: 'reveal', 'data-delay': '2', style: { marginTop: '24px' } }, consoleEl),
+    h('div', { class: 'card reveal', 'data-delay': '2', style: { marginTop: '24px' } }, h('h3', { style: { marginBottom: '4px' } }, 'Hardware online'), h('p', { class: 'small muted', style: { marginBottom: '12px' } }, 'Nodes by class, as they reported themselves on registration. Hover a tile for the GPU names.'), hw),
     h('div', { class: 'card reveal', 'data-delay': '2', style: { marginTop: '24px' } }, map),
     h(
       'div',

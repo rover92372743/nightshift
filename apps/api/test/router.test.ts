@@ -307,3 +307,31 @@ test('prompt and reply text are scrubbed after the retention window; hashes and 
     await close();
   }
 });
+
+test('time billing charges router-measured seconds at the hourly rate, capped at the hold', async () => {
+  const { app, close } = await fresh();
+  try {
+    const node = makeNode(app);
+    await node.register({ pricePerHour: 360_000 }); // $0.36/h = 100 µcr per second
+    const sub = await app.inject({ method: 'POST', url: '/v1/jobs', payload: { workload: 'compute', rounds: 2000, billing: 'time', maxSeconds: 10 } });
+    const cookie = sub.headers['set-cookie'] as string;
+    const job0 = sub.json();
+    assert.equal(job0.priceMicro, 1000); // 10 s × 100 µcr
+    const job = (await node.claim()).json().job;
+    await new Promise((r) => setTimeout(r, 1100));
+    const digest = await computeTask(job.input.seed, job.input.rounds);
+    const output = { digest, outputTokens: 0, units: 2, durationMs: 1100 };
+    // Mirror what the node client does: seconds since the router's startedAt.
+    const seconds = Math.max(1, Math.ceil((Date.now() - job.startedAt) / 1000));
+    const costMicro = Math.min(job.priceMicro, seconds * 100);
+    const outputHash = sha256Hex(digest);
+    const body: ReceiptBody = { v: 1, jobId: job.id, nodeId: node.id, nodeClass: 'browser', workload: 'compute', model: 'hashchain-v1', inputHash: job.inputHash, outputHash, outputTokens: 0, units: 2, startedAt: job.startedAt, finishedAt: Date.now(), costMicro };
+    const r = await node.complete(job.id, { output, receipt: body, nodeSig: node.sign(canonical(body)) });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.ok(r.json().receipt.body.costMicro >= 100 && r.json().receipt.body.costMicro <= 300);
+    const me = (await app.inject({ method: 'GET', url: '/v1/me', headers: { cookie } })).json();
+    assert.equal(me.balanceMicro, FREE_GRANT_MICRO - r.json().receipt.body.costMicro);
+  } finally {
+    await close();
+  }
+});

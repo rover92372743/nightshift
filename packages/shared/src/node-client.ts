@@ -93,10 +93,15 @@ export class NodeClient {
     return data.job;
   }
 
-  async complete(job: JobRecord, output: JobOutput, pricePer1k: number): Promise<Receipt> {
+  async complete(job: JobRecord, output: JobOutput, pricePer1k: number, pricePerHour?: number): Promise<Receipt> {
     const outputHash = await sha256Hex(job.input.workload === 'llm' ? String(output.text ?? '') : String(output.digest ?? ''));
     const finishedAt = Date.now();
-    const costMicro = Math.min(job.priceMicro, Math.max(1, Math.ceil((output.units * pricePer1k) / 1000)));
+    let costMicro: number;
+    if (job.input.billing === 'time') {
+      // Router time: startedAt came from the router's clock at claim.
+      const seconds = Math.max(1, Math.ceil((finishedAt - (job.startedAt ?? finishedAt - output.durationMs)) / 1000));
+      costMicro = Math.min(job.priceMicro, Math.max(1, Math.ceil((seconds * (pricePerHour ?? 20_000)) / 3600)));
+    } else costMicro = Math.min(job.priceMicro, Math.max(1, Math.ceil((output.units * pricePer1k) / 1000)));
     const body: ReceiptBody = {
       v: 1,
       jobId: job.id,
@@ -181,7 +186,7 @@ export async function runWorker(
       try {
         const ctrl = new AbortController();
         const output = await work(job, ctrl.signal);
-        const receipt = await client.complete(job, output, client.node!.capabilities.pricePer1k);
+        const receipt = await client.complete(job, output, client.node!.capabilities.pricePer1k, client.node!.capabilities.pricePerHour);
         ev.done?.(job, receipt);
       } catch (err) {
         const reason = (err as Error).message ?? String(err);

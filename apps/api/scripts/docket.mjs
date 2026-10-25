@@ -64,7 +64,7 @@ function render(me) {
     `${dim('node')}      ${n.label}  ${dim(n.id)}`,
     `${dim('status')}    ${n.status === 'offline' ? 'offline' : green(n.status)}`,
     `${dim('hardware')}  ${hw?.gpu ?? 'not reported'}${hw?.vramGb ? `, ${hw.vramGb} GB` : ''}${hw?.tier ? dim(`  (${TIER_LABEL[hw.tier]})`) : ''}`,
-    `${dim('price')}     ${n.capabilities.pricePer1k} µcr per 1k units`,
+    `${dim('price')}     $${((n.capabilities.pricePerHour ?? 0) / 1e6).toFixed(2)} per hour · ${n.capabilities.pricePer1k} µcr per 1k units`,
     `${dim('uptime')}    ${hm(me.uptimeMs24h)} today`,
     '',
     `${dim('balance')}   ${bold(usd(me.balanceMicro))}  ${dim(`(${cr(me.balanceMicro)} cr, spendable or payable)`)}`,

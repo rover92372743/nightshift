@@ -56,8 +56,14 @@ export class Router {
     // Quote against the cheapest node that could take it right now. If none
     // is online we still accept the job at the floor and let it wait.
     const cands = this.nodes.candidates(input.workload, input.model, promptChars(input), input.maxOutputTokens ?? 0);
-    const per1k = cands.length ? Math.min(...cands.map((n) => n.capabilities.pricePer1k)) : PRICE_FLOOR_PER_1K;
-    const priceMicro = Math.max(1, Math.ceil((units * per1k) / 1000));
+    let priceMicro: number;
+    if (input.billing === 'time') {
+      const perHour = cands.length ? Math.min(...cands.map((n) => n.capabilities.pricePerHour ?? Infinity)) : 20_000;
+      priceMicro = Math.max(1, Math.ceil(((input.maxSeconds ?? 60) * perHour) / 3600));
+    } else {
+      const per1k = cands.length ? Math.min(...cands.map((n) => n.capabilities.pricePer1k)) : PRICE_FLOOR_PER_1K;
+      priceMicro = Math.max(1, Math.ceil((units * per1k) / 1000));
+    }
 
     const job: JobRecord = {
       id: id('job'),
@@ -99,6 +105,8 @@ export class Router {
       if (totalChars > 32_000) throw new JobError(413, 'prompt too long');
       return {
         workload: 'llm',
+        billing: raw.billing === 'time' ? 'time' : 'tokens',
+        maxSeconds: raw.billing === 'time' ? clamp(raw.maxSeconds ?? 60, 5, 3600) : undefined,
         model: String(raw.model ?? 'qwen2.5-0.5b-instruct'),
         messages: messages.map((m) => ({ role: m.role, content: m.content })),
         maxOutputTokens: clamp(raw.maxOutputTokens ?? 128, 1, 2048),
@@ -108,6 +116,8 @@ export class Router {
     if (raw.workload === 'compute') {
       return {
         workload: 'compute',
+        billing: raw.billing === 'time' ? 'time' : 'tokens',
+        maxSeconds: raw.billing === 'time' ? clamp(raw.maxSeconds ?? 60, 5, 3600) : undefined,
         model: 'hashchain-v1',
         seed: Math.floor(Number(raw.seed ?? Math.random() * 2 ** 31)),
         rounds: clamp(raw.rounds ?? 100_000, COMPUTE_MIN_ROUNDS, COMPUTE_MAX_ROUNDS),
@@ -134,7 +144,7 @@ export class Router {
         .filter((n) => !taken.has(n.id));
       if (cands.length === 0) continue;
 
-      const node = pickCheapest(cands);
+      const node = pickCheapest(cands, input.billing === 'time');
       taken.add(node.id);
       const t = nowMs();
       this.db
@@ -280,9 +290,18 @@ export class Router {
     }
 
     // 4. Settle: charge actual usage, refund the rest of the hold, pay the node.
-    const per1k = node.capabilities.pricePer1k;
-    const costMicro = Math.min(job.priceMicro, Math.max(1, Math.ceil((units * per1k) / 1000)));
-    if (body.costMicro !== costMicro) throw new JobError(400, `receipt cost mismatch (expected ${costMicro})`);
+    //    Time billing uses the router's own clock between claim and completion,
+    //    so a node can't bill for seconds it didn't hold the job.
+    const costMicro = this.costFor(job, node, units);
+    if (body.costMicro !== costMicro) {
+      // Time billing: the node's clock and ours differ by a little. Accept the
+      // node's figure if it's within a couple of seconds' worth and under the hold.
+      const perHour = node.capabilities.pricePerHour ?? 20_000;
+      const slack = Math.ceil((2 * perHour) / 3600) + 1;
+      const ok = job.input.billing === 'time' && body.costMicro <= job.priceMicro && Math.abs(body.costMicro - costMicro) <= slack;
+      if (!ok) throw new JobError(400, `receipt cost mismatch (expected ${costMicro})`);
+    }
+    const settledMicro = body.costMicro;
 
     const receipt: Receipt = {
       id: id('rcpt'),
@@ -297,11 +316,11 @@ export class Router {
     const tx = this.db.transaction(() => {
       this.db
         .prepare("UPDATE jobs SET status='done', output=?, cost_micro=?, finished_at=? WHERE id=?")
-        .run(JSON.stringify({ ...output, units }), costMicro, t, job.id);
-      const refund = job.priceMicro - costMicro;
+        .run(JSON.stringify({ ...output, units }), settledMicro, t, job.id);
+      const refund = job.priceMicro - settledMicro;
       if (refund > 0) this.ledger.post(job.requesterId, refund, 'refund', job.id);
-      this.ledger.post(this.nodes.accountId(nodeId), costMicro, 'earn', job.id);
-      this.nodes.recordDone(nodeId, units, costMicro);
+      this.ledger.post(this.nodes.accountId(nodeId), settledMicro, 'earn', job.id);
+      this.nodes.recordDone(nodeId, units, settledMicro);
       this.db
         .prepare(
           `INSERT INTO receipts (id, job_id, body, node_sig, router_sig, node_key, router_key, created_at)
@@ -318,10 +337,20 @@ export class Router {
       nodeId,
       units,
       durationMs: t - (job.startedAt ?? job.createdAt),
-      costMicro,
+      costMicro: settledMicro,
     });
     this.dispatch();
     return receipt;
+  }
+
+  /** What a finished job costs on this node: tokens × per-1k, or router-measured seconds × hourly. Never above the hold. */
+  costFor(job: JobRecord, node: NodeRecord, units: number): number {
+    if (job.input.billing === 'time') {
+      const seconds = Math.max(1, Math.ceil((nowMs() - (job.startedAt ?? job.assignedAt ?? job.createdAt)) / 1000));
+      const perHour = node.capabilities.pricePerHour ?? 20_000;
+      return Math.min(job.priceMicro, Math.max(1, Math.ceil((seconds * perHour) / 3600)));
+    }
+    return Math.min(job.priceMicro, Math.max(1, Math.ceil((units * node.capabilities.pricePer1k) / 1000)));
   }
 
   private checkUnits(job: JobRecord, output: JobOutput): number {
@@ -425,12 +454,12 @@ export function withoutContent(job: JobRecord): JobRecord {
   return { ...job, input, output, requesterId: 'hidden' };
 }
 
-function pickCheapest(cands: NodeRecord[]): NodeRecord {
-  // Cheapest first, then faster claimed throughput, then the one that's been
-  // waiting longest (lastSeen as a cheap proxy). Browser tabs beat native at
-  // equal price only because they're the cheapest to keep online.
+function pickCheapest(cands: NodeRecord[], byTime = false): NodeRecord {
+  // Cheapest first (by the price that applies to this job's billing), then
+  // faster claimed throughput, then the one that's been waiting longest.
+  const price = (n: NodeRecord) => (byTime ? n.capabilities.pricePerHour ?? Infinity : n.capabilities.pricePer1k);
   return [...cands].sort((a, b) => {
-    const p = a.capabilities.pricePer1k - b.capabilities.pricePer1k;
+    const p = price(a) - price(b);
     if (p !== 0) return p;
     const s = (b.capabilities.tokensPerSec ?? 0) - (a.capabilities.tokensPerSec ?? 0);
     if (s !== 0) return s;

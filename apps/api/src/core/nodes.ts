@@ -1,7 +1,7 @@
 import type { Db } from '../db/index.js';
 import { id, nowMs } from '../db/index.js';
 import type { NodeCapabilities, NodeClass, NodeRecord, PublicNode, Workload } from '@docket/shared';
-import { OFFLINE_AFTER_MS, PRICE_FLOOR_PER_1K } from '@docket/shared';
+import { OFFLINE_AFTER_MS, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram } from '@docket/shared';
 import type { Live } from './live.js';
 import type { Ledger } from './ledger.js';
 
@@ -146,9 +146,11 @@ export class Nodes {
 function sanitiseCaps(c: Partial<NodeCapabilities>): NodeCapabilities {
   const workloads = (c.workloads ?? []).filter((w): w is Workload => WORKLOADS.includes(w as Workload));
   if (workloads.length === 0) throw new Error('node must offer at least one workload');
+  const tier = c.hardware?.tier ?? tierForVram(c.hardware?.vramGb);
   return {
     workloads,
     models: (c.models ?? []).map(String).slice(0, 16),
+    pricePerHour: Math.max(10_000, Math.floor(c.pricePerHour ?? HOURLY_SUGGESTED[tier])),
     maxPromptChars: clamp(c.maxPromptChars ?? 4000, 256, 32_000),
     maxOutputTokens: clamp(c.maxOutputTokens ?? 256, 16, 2048),
     pricePer1k: Math.max(PRICE_FLOOR_PER_1K, Math.floor(c.pricePer1k ?? PRICE_FLOOR_PER_1K)),

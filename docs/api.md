@@ -58,6 +58,8 @@ Same thing without waiting. Returns `202` and the job record. Body is a job inpu
 {"workload": "llm", "model": "qwen2.5-0.5b-instruct", "messages": [...], "maxOutputTokens": 128}
 ```
 
+Add `"billing": "time", "maxSeconds": 120` to be billed by the seconds a card holds the job at its hourly rate instead of by output tokens. See [Pricing and credits](/docs/pricing-and-credits).
+
 or
 
 ```json
@@ -143,7 +145,9 @@ Timestamps more than 60 seconds off the router's clock are rejected. The shared 
     "maxPromptChars": 6000,
     "maxOutputTokens": 192,
     "pricePer1k": 250,
-    "tokensPerSec": 25
+    "pricePerHour": 160000,
+    "tokensPerSec": 25,
+    "hardware": {"gpu": "NVIDIA GeForce RTX 4080", "vramGb": 16, "tier": "gpu-16"}
   }
 }
 ```

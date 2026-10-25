@@ -13,6 +13,7 @@
 //   DOCKET_URL        router, default http://localhost:8787
 //   DOCKET_LABEL      name on the map, default "<hostname> (gpu)" or "(cli)"
 //   DOCKET_PRICE      µcr per 1k units; default depends on detected hardware tier
+//   DOCKET_HOURLY     µcr per hour for time-billed jobs; default depends on tier (1,000,000 = $1)
 //   DOCKET_LLM_URL    e.g. http://localhost:8080/v1  (llama-server) or http://localhost:11434/v1 (Ollama)
 //   DOCKET_MODELS     comma-separated model names you serve, as customers will ask for them
 //   DOCKET_MAX_OUT    max output tokens per task, default 1024
@@ -25,7 +26,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { NodeClient, runWorker, computeTask, tierForVram, TIER_LABEL } from '@docket/shared';
+import { NodeClient, runWorker, computeTask, tierForVram, TIER_LABEL, HOURLY_SUGGESTED } from '@docket/shared';
 
 const baseUrl = process.env.DOCKET_URL ?? 'http://localhost:8787';
 const llmUrl = process.env.DOCKET_LLM_URL?.replace(/\/$/, '');
@@ -60,6 +61,7 @@ const tier = tierForVram(hw.vramGb);
 // Suggested prices per tier, µcr per 1k units. Operators can override.
 const SUGGESTED = { cpu: 250, 'gpu-8': 400, 'gpu-16': 600, 'gpu-24': 900, 'gpu-48': 1500, 'gpu-80': 2600 };
 const price = Number(process.env.DOCKET_PRICE ?? SUGGESTED[tier]);
+const hourly = Number(process.env.DOCKET_HOURLY ?? HOURLY_SUGGESTED[tier]);
 const label = process.env.DOCKET_LABEL ?? `${os.hostname()} (${hw.gpu ? 'gpu' : 'cli'})`;
 
 // --- key --------------------------------------------------------------------
@@ -122,10 +124,10 @@ const client = new NodeClient({
   signer,
   class: 'native',
   label,
-  capabilities: { workloads, models: workloads.includes('llm') ? models : [], maxPromptChars: 16000, maxOutputTokens: maxOut, pricePer1k: price, tokensPerSec: hw.gpu ? 40 : 8, hardware: { ...hw, tier } },
+  capabilities: { workloads, models: workloads.includes('llm') ? models : [], maxPromptChars: 16000, maxOutputTokens: maxOut, pricePer1k: price, pricePerHour: hourly, tokensPerSec: hw.gpu ? 40 : 8, hardware: { ...hw, tier } },
 });
 
-console.log(`hardware: ${hw.gpu ?? 'no GPU detected'}${hw.vramGb ? ` (${hw.vramGb} GB)` : ''} → ${TIER_LABEL[tier]}, price ${price} µcr/1k, workloads: ${workloads.join(', ')}`);
+console.log(`hardware: ${hw.gpu ?? 'no GPU detected'}${hw.vramGb ? ` (${hw.vramGb} GB)` : ''} → ${TIER_LABEL[tier]}, $${(hourly / 1e6).toFixed(2)}/h, ${price} µcr/1k, workloads: ${workloads.join(', ')}`);
 
 const ctrl = new AbortController();
 process.on('SIGINT', () => ctrl.abort());

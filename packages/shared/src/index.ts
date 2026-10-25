@@ -24,8 +24,10 @@ export interface NodeCapabilities {
   models: string[];
   maxPromptChars: number;
   maxOutputTokens: number;
-  /** Price in micro-credits per 1k output tokens (llm) or per work unit (compute). */
+  /** Price in micro-credits per 1k output tokens (llm) or per 1k work units (compute). */
   pricePer1k: number;
+  /** Price in micro-credits per hour of node time, for time-billed jobs. Defaults from the hardware tier. */
+  pricePerHour?: number;
   /** Rough throughput the node claims, used as a tie-breaker. */
   tokensPerSec?: number;
   /** What the node is running on. Self-reported; the benchmark on registration is what pricing trusts. */
@@ -46,6 +48,21 @@ export const TIER_LABEL: Record<HardwareTier, string> = {
   'gpu-24': 'GPU, 20–24 GB',
   'gpu-48': 'GPU, 32–48 GB',
   'gpu-80': 'GPU, 80 GB+',
+};
+
+/**
+ * Suggested hourly rates by tier, in micro-credits (1,000,000 = $1). These are
+ * what the agent advertises unless the operator sets DOCKET_HOURLY. The
+ * Pricing page's list rates sit above them; the gap funds verification and
+ * the router.
+ */
+export const HOURLY_SUGGESTED: Record<HardwareTier, number> = {
+  cpu: 20_000,       // $0.02
+  'gpu-8': 90_000,   // $0.09
+  'gpu-16': 160_000, // $0.16
+  'gpu-24': 260_000, // $0.26
+  'gpu-48': 600_000, // $0.60
+  'gpu-80': 1_400_000, // $1.40
 };
 
 export function tierForVram(vramGb: number | undefined): HardwareTier {
@@ -78,9 +95,15 @@ export interface ChatMessage {
   content: string;
 }
 
+export type Billing = 'tokens' | 'time';
+
 export interface JobInput {
   workload: Workload;
   model: string;
+  /** 'tokens' bills output size at the node's per-1k price; 'time' bills seconds of node time at its hourly price. */
+  billing?: Billing;
+  /** For time billing: the most seconds the requester will pay for. The hold is based on this. */
+  maxSeconds?: number;
   messages?: ChatMessage[];      // llm
   maxOutputTokens?: number;      // llm
   temperature?: number;          // llm

@@ -170,7 +170,7 @@ if (PREVIEW) {
       'div',
       { class: 'preview-banner' },
       h('b', null, 'Preview build.'),
-      ' The router and a few nodes are simulated inside this page: routing, holds, refunds and signed receipts are real; chat replies are canned. The repo runs the real thing.',
+      ' The router and every node on the map are simulated inside this page: routing, holds, refunds and signed receipts are real code; the nodes and their model replies are stand-ins. The repo runs the real thing.',
     ),
   );
 }

@@ -20,7 +20,8 @@ Environment:
 |---|---|---|
 | `DOCKET_URL` | `http://localhost:8787` | The router |
 | `DOCKET_LABEL` | `<hostname> (gpu)` or `(cli)` | Name on the map. Pick something that doesn't identify you |
-| `DOCKET_PRICE` | by hardware class | µcr per 1k units. Floor is 200 |
+| `DOCKET_PRICE` | by hardware class | µcr per 1k units for token-billed jobs. Floor is 200 |
+| `DOCKET_HOURLY` | by hardware class | µcr per hour for time-billed jobs (1,000,000 = $1). Floor is 10,000 |
 | `DOCKET_LLM_URL` | unset | An OpenAI-compatible server on this machine, e.g. `http://localhost:8080/v1` |
 | `DOCKET_MODELS` | unset | Comma-separated model names you serve, as customers will ask for them |
 | `DOCKET_MAX_OUT` | `1024` | Max output tokens per task |

@@ -265,14 +265,32 @@ export class Field {
     for (const c of ['browser', 'native', 'cloud', 'external'] as NodeClass[]) this.layoutClass(c);
   }
 
-  private layoutClass(cls: NodeClass): void {
-    const members = Array.from(this.nodes.values()).filter((n) => n.cls === cls).sort((a, b) => hash(a.id) - hash(b.id));
-    const [rf, a0, span] = RING[cls];
-    members.forEach((n, i) => {
-      const k = members.length === 1 ? 0.5 : i / (members.length - 1);
-      n.angle = a0 + k * span + (hash(n.id + 'a') - 0.5) * 0.12;
-      n.radius = rf + (hash(n.id + 'r') - 0.5) * 0.14;
-      this.place(n);
+  /**
+   * Lay every class out around the ring, each class getting a sector sized
+   * by how many nodes it has (with a minimum so small classes stay visible).
+   * Classes keep a fixed order so the map reads the same from visit to visit.
+   */
+  private layoutClass(_cls: NodeClass): void {
+    const order: NodeClass[] = ['browser', 'native', 'cloud', 'external'];
+    const groups = order.map((c) => Array.from(this.nodes.values()).filter((n) => n.cls === c).sort((a, b) => hash(a.id) - hash(b.id)));
+    const total = groups.reduce((n, g) => n + g.length, 0) || 1;
+    const minSpan = 0.35;
+    const spans = groups.map((g) => (g.length ? Math.max(minSpan, (g.length / total) * (Math.PI * 2 - 0.4)) : 0));
+    const sum = spans.reduce((a, b) => a + b, 0) || 1;
+    const scale = (Math.PI * 2 - 0.4) / sum;
+    let a = -Math.PI * 0.95;
+    groups.forEach((g, i) => {
+      const span = spans[i] * scale;
+      // Two rings when a class is crowded, so dots don't pile on each other.
+      const rings = g.length > 10 ? 2 : 1;
+      g.forEach((n, j) => {
+        const ring = j % rings;
+        const k = g.length === 1 ? 0.5 : j / (g.length - 1);
+        n.angle = a + 0.08 + k * (span - 0.16);
+        n.radius = (ring === 0 ? 0.78 : 0.56) + (hash(n.id + 'r') - 0.5) * 0.1;
+        this.place(n);
+      });
+      a += span + 0.1;
     });
   }
 

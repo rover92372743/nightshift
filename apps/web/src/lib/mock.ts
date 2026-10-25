@@ -7,7 +7,7 @@
 
 import nacl from 'tweetnacl';
 import type { JobInput, JobOutput, JobRecord, LiveEvent, NetworkStats, NodeCapabilities, NodeClass, PublicNode, Receipt, ReceiptBody } from '@docket/shared';
-import { canonical, computeTask, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K } from '@docket/shared';
+import { canonical, computeTask, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, type HardwareTier } from '@docket/shared';
 
 const enc = new TextEncoder();
 function b64u(bytes: Uint8Array): string {
@@ -77,14 +77,40 @@ export class MockRouter {
 
   constructor() {
     this.ledger.push({ id: id('lg'), deltaMicro: FREE_GRANT_MICRO, kind: 'grant', ref: 'welcome', createdAt: Date.now() });
-    this.simNode('browser', 'firefox on mac', { workloads: ['llm', 'compute'], models: ['qwen2.5-0.5b-instruct'], maxPromptChars: 6000, maxOutputTokens: 192, pricePer1k: 230, tokensPerSec: 18 });
-    this.simNode('browser', 'chrome on windows', { workloads: ['compute'], models: [], maxPromptChars: 6000, maxOutputTokens: 128, pricePer1k: 210, tokensPerSec: 9 });
-    this.simNode('native', 'ryzen box (cli)', { workloads: ['llm', 'compute'], models: ['qwen2.5-0.5b-instruct', 'llama-3.1-8b-instruct'], maxPromptChars: 16000, maxOutputTokens: 1024, pricePer1k: 410, tokensPerSec: 60 });
+    // A varied simulated fleet so the preview map shows what a real network of
+    // consumer cards looks like. All simulated; the banner says so.
+    const GPUS: [string, number][] = [
+      ['NVIDIA GeForce RTX 4090', 24], ['NVIDIA GeForce RTX 4080', 16], ['NVIDIA GeForce RTX 4070 Ti', 12], ['NVIDIA GeForce RTX 4060', 8],
+      ['NVIDIA GeForce RTX 3090', 24], ['NVIDIA GeForce RTX 3080', 10], ['NVIDIA GeForce RTX 3070', 8], ['NVIDIA GeForce RTX 3060', 12],
+      ['AMD Radeon RX 7900 XTX', 24], ['AMD Radeon RX 7800 XT', 16], ['AMD Radeon RX 6700 XT', 12],
+      ['Apple M2 Max', 32], ['Apple M3 Pro', 18], ['Apple M1', 8],
+      ['NVIDIA RTX A6000', 48], ['NVIDIA A100 80GB', 80], ['NVIDIA L4', 24], ['NVIDIA Tesla T4', 16],
+    ];
+    const NAMES = ['quiet-lamp', 'brisk-kettle', 'plain-harbour', 'early-ledger', 'spare-pebble', 'steady-maple', 'small-anvil', 'blue-cedar', 'grey-copper', 'calm-quill', 'late-birch', 'dry-slate', 'warm-ferry', 'low-orchard', 'still-gravel', 'far-lantern', 'soft-granite', 'pale-rudder', 'thin-walnut', 'old-pier', 'high-thistle', 'near-cobble', 'mild-saddle', 'clear-fathom', 'deep-marrow', 'odd-shingle', 'keen-tallow', 'fine-barrow'];
+    for (let i = 0; i < 28; i++) {
+      const [gpu, vram] = GPUS[(i * 7) % GPUS.length];
+      const tier = tierForVram(vram);
+      const native = i % 3 !== 0;
+      const price = { cpu: 250, 'gpu-8': 300, 'gpu-16': 420, 'gpu-24': 620, 'gpu-48': 1100, 'gpu-80': 1900 }[tier] + ((i * 37) % 90);
+      this.simNode(native ? 'native' : 'browser', `${NAMES[i % NAMES.length]}-${100 + ((i * 53) % 900)}`, {
+        workloads: native ? ['llm', 'compute'] : ['compute'],
+        models: native ? (vram >= 16 ? ['qwen2.5-0.5b-instruct', 'qwen2.5-7b-instruct'] : ['qwen2.5-0.5b-instruct']) : [],
+        maxPromptChars: native ? 16000 : 6000,
+        maxOutputTokens: native ? 1024 : 128,
+        pricePer1k: price,
+        pricePerHour: HOURLY_SUGGESTED[tier] + ((i * 13) % 20) * 1000,
+        tokensPerSec: native ? 20 + vram : 6,
+        hardware: { gpu: native ? gpu : undefined, vramGb: native ? vram : undefined, tier: native ? tier : 'cpu' },
+      });
+    }
+    // Two tabs with no model so compute test jobs have cheap takers.
+    this.simNode('browser', 'chrome on windows', { workloads: ['compute'], models: [], maxPromptChars: 6000, maxOutputTokens: 128, pricePer1k: 210, pricePerHour: 20_000, tokensPerSec: 9, hardware: { tier: 'cpu' } });
+    this.simNode('browser', 'firefox on mac', { workloads: ['llm', 'compute'], models: ['qwen2.5-0.5b-instruct'], maxPromptChars: 6000, maxOutputTokens: 192, pricePer1k: 230, pricePerHour: 90_000, tokensPerSec: 18, hardware: { gpu: 'Apple M1', tier: 'gpu-8' } });
     setInterval(() => this.emit({ t: 'stats', stats: this.stats() }), 4000);
     // Occasionally a simulated node comes and goes so the map has some life.
     setInterval(() => {
-      if (Math.random() < 0.35) {
-        const n = this.simNode('browser', ['safari on mac', 'edge on linux', 'brave on windows'][Math.floor(Math.random() * 3)], { workloads: ['compute'], models: [], maxPromptChars: 4000, maxOutputTokens: 128, pricePer1k: 200 + Math.floor(Math.random() * 90) });
+      if (Math.random() < 0.4) {
+        const n = this.simNode('browser', ['safari on mac', 'edge on linux', 'brave on windows'][Math.floor(Math.random() * 3)] + '-' + Math.floor(100 + Math.random() * 900), { workloads: ['compute'], models: [], maxPromptChars: 4000, maxOutputTokens: 128, pricePer1k: 200 + Math.floor(Math.random() * 90), pricePerHour: 20_000, hardware: { tier: 'cpu' } });
         setTimeout(() => {
           if (n.status !== 'busy') {
             n.status = 'offline';
@@ -96,7 +122,7 @@ export class MockRouter {
     }, 25_000);
   }
 
-  private simNode(cls: NodeClass, label: string, caps: NodeCapabilities): MNode {
+  private simNode(cls: NodeClass, label: string, caps: NodeCapabilities & { hardware?: { gpu?: string; vramGb?: number; tier?: HardwareTier } }): MNode {
     const kp = nacl.sign.keyPair();
     const n: MNode = { id: id('nd'), cls, label, pk: b64u(kp.publicKey), sk: kp.secretKey, caps, status: 'online', jobsDone: Math.floor(Math.random() * 30), jobsFailed: 0, units: 0, earned: 0, balance: 0, simulated: true, lastSeen: Date.now(), uptime: 0, payouts: [] };
     this.nodes.set(n.id, n);
