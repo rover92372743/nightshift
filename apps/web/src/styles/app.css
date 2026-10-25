@@ -480,6 +480,7 @@ input[type='range'] { width: 100%; accent-color: var(--stamp); }
 .sim-price { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; }
 .sim-price small { font-size: 0.8rem; font-weight: 500; color: var(--ink-2); letter-spacing: 0; }
 .sim-meta { display: grid; gap: 2px; font-size: 0.85rem; color: var(--ink-2); }
+.sim-gpu { color: var(--ink); font-weight: 600; font-size: 0.82rem; }
 .sim-state.busy { color: var(--warn); }
 .sim-why { font-size: 0.85rem; color: var(--bad); min-height: 1.2em; font-weight: 500; }
 .sim-card.out .sim-why { color: var(--ink); }

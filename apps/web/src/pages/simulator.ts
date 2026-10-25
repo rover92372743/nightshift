@@ -1,4 +1,4 @@
-// "Route one yourself": six made-up nodes, one job you shape with sliders,
+// "Route one yourself": nine made-up nodes, one job you shape with sliders,
 // and the same ranking rules the router uses. Press the button and watch the
 // candidates get eliminated one by one, the survivors sort by price, and the
 // winner get stamped.
@@ -10,6 +10,7 @@ interface SimNode {
   id: string;
   label: string;
   cls: NodeClass;
+  gpu: string;
   models: string[];
   maxOut: number;
   maxPrompt: number;
@@ -18,38 +19,50 @@ interface SimNode {
   busy: boolean;
 }
 
-const MODELS = ['qwen2.5-0.5b-instruct', 'smollm2-360m-instruct', 'llama-3.1-8b-instruct'];
-const NAMES = ['firefox on mac', 'chrome on windows', 'edge on linux', 'safari on mac', 'ryzen box (cli)', 'mini pc (cli)', 'studio m2 (cli)', 'rented a10g', 'vendor api'];
+const MODELS = ['qwen2.5-0.5b-instruct', 'smollm2-360m-instruct', 'qwen2.5-7b-instruct', 'llama-3.1-8b-instruct'];
+const [Q05, SMOL, Q7, L8] = MODELS;
 
 let seed = 7;
 function rnd(): number {
   seed = (seed * 1103515245 + 12345) & 0x7fffffff;
   return seed / 0x7fffffff;
 }
-function pick<T>(a: T[]): T {
-  return a[Math.floor(rnd() * a.length)];
-}
+
+/**
+ * A spread of machines, small to big, so every slider position has takers
+ * and the gaps between them are the kind you'd actually see: a laptop tab, a
+ * mid-range desktop, a 24 GB card, a rented one, a paid API.
+ * The biggest native boxes cover every model at the sliders' maximums, so
+ * the demo never dead-ends unless you make it (model nobody small serves +
+ * the big ones busy).
+ */
+const FLEET: Omit<SimNode, 'id' | 'busy'>[] = [
+  { label: 'firefox on mac', cls: 'browser', gpu: 'Apple M1 · 8 GB', models: [Q05, SMOL], maxOut: 192, maxPrompt: 6000, price: 230, tps: 17 },
+  { label: 'chrome on windows', cls: 'browser', gpu: 'RTX 3060 · 12 GB', models: [Q05, SMOL], maxOut: 256, maxPrompt: 8000, price: 270, tps: 24 },
+  { label: 'edge on linux', cls: 'browser', gpu: 'RTX 4070 · 12 GB', models: [Q05, SMOL, L8], maxOut: 512, maxPrompt: 12000, price: 340, tps: 31 },
+  { label: 'mini pc (cli)', cls: 'native', gpu: 'RTX 4060 · 8 GB', models: [Q05, SMOL], maxOut: 768, maxPrompt: 16000, price: 410, tps: 60 },
+  { label: 'ryzen box (cli)', cls: 'native', gpu: 'RTX 3080 · 10 GB', models: [Q05, SMOL, L8], maxOut: 1024, maxPrompt: 16000, price: 620, tps: 75 },
+  { label: 'studio m2 (cli)', cls: 'native', gpu: 'M2 Max · 32 GB', models: [Q05, SMOL, Q7, L8], maxOut: 1024, maxPrompt: 16000, price: 780, tps: 65 },
+  { label: '4090 rig (cli)', cls: 'native', gpu: 'RTX 4090 · 24 GB', models: [Q05, SMOL, Q7, L8], maxOut: 2048, maxPrompt: 16000, price: 950, tps: 140 },
+  { label: 'rented a10g', cls: 'cloud', gpu: 'A10G · 24 GB', models: [Q7, L8], maxOut: 2048, maxPrompt: 16000, price: 2340, tps: 96 },
+  { label: 'vendor api', cls: 'external', gpu: 'hosted', models: [L8], maxOut: 2048, maxPrompt: 16000, price: 3940, tps: 53 },
+];
 
 function makeNodes(): SimNode[] {
-  const out: SimNode[] = [];
-  const names = [...NAMES];
-  for (let i = 0; i < 6; i++) {
-    const label = names.splice(Math.floor(rnd() * names.length), 1)[0];
-    const cls: NodeClass = label.includes('cli') ? 'native' : label.includes('rented') ? 'cloud' : label.includes('vendor') ? 'external' : 'browser';
-    const models = cls === 'browser' ? [MODELS[0], ...(rnd() > 0.6 ? [MODELS[1]] : [])] : cls === 'native' ? [MODELS[0], MODELS[2]] : [MODELS[2]];
-    out.push({
-      id: 'n' + i,
-      label,
-      cls,
-      models,
-      maxOut: cls === 'browser' ? pick([128, 192, 256]) : pick([512, 1024, 2048]),
-      maxPrompt: cls === 'browser' ? pick([4000, 6000]) : 16000,
-      price: cls === 'browser' ? 200 + Math.floor(rnd() * 120) : cls === 'native' ? 350 + Math.floor(rnd() * 400) : 1500 + Math.floor(rnd() * 2500),
-      tps: cls === 'browser' ? 6 + Math.floor(rnd() * 20) : 30 + Math.floor(rnd() * 90),
-      busy: rnd() > 0.75,
-    });
-  }
-  return out;
+  // Same machines every time; what changes is who's busy and the exact asking
+  // price, which is what changes on a real network minute to minute.
+  const nodes = FLEET.map((f, i) => ({ ...f, id: 'n' + i, busy: false, price: Math.round(f.price * (0.9 + rnd() * 0.2)) }));
+  const busyCount = 2 + Math.floor(rnd() * 2);
+  const idx = nodes.map((_, i) => i).sort(() => rnd() - 0.5).slice(0, busyCount);
+  for (const i of idx) nodes[i].busy = true;
+  // keep at least one of the two all-rounders free so a maxed-out job has a taker
+  const all = nodes.filter((n) => n.models.length === MODELS.length);
+  if (all.every((n) => n.busy)) all[Math.floor(rnd() * all.length)].busy = false;
+  return nodes;
+}
+
+function shortModel(m: string): string {
+  return m.replace('-instruct', '').replace('qwen2.5-', 'qwen ').replace('llama-3.1-', 'llama ').replace('smollm2-', 'smollm ');
 }
 
 export function simulatorSection(): HTMLElement {
@@ -75,7 +88,8 @@ export function simulatorSection(): HTMLElement {
       h(
         'div',
         { class: 'sim-meta' },
-        h('span', null, n.models.map((m) => m.split('-')[0]).join(', ')),
+        h('span', { class: 'sim-gpu' }, n.gpu),
+        h('span', null, n.models.map(shortModel).join(', ')),
         h('span', null, `≤ ${n.maxOut} out · ≤ ${(n.maxPrompt / 1000).toFixed(0)}k chars`),
         h('span', null, `${n.tps} tok/s`),
         h('span', { class: `sim-state ${n.busy ? 'busy' : ''}` }, n.busy ? 'busy' : 'idle'),
@@ -95,8 +109,8 @@ export function simulatorSection(): HTMLElement {
   function reason(n: SimNode): string | null {
     if (n.busy) return 'busy right now';
     if (!n.models.includes(model.value)) return "doesn't serve this model";
-    if (Number(tokens.value) > n.maxOut) return `caps output at ${n.maxOut}`;
-    if (Number(prompt.value) > n.maxPrompt) return 'prompt too long for it';
+    if (Number(tokens.value) > n.maxOut) return `caps output at ${n.maxOut} tokens`;
+    if (Number(prompt.value) > n.maxPrompt) return `takes prompts up to ${(n.maxPrompt / 1000).toFixed(0)}k chars`;
     return null;
   }
 
@@ -153,7 +167,8 @@ export function simulatorSection(): HTMLElement {
     const win = sorted[0];
     cardOf.get(win.id)!.classList.add('win');
     const hold = Math.ceil((Number(tokens.value) * win.price) / 1000);
-    verdict.textContent = `${win.label} wins at ${fmtPerM(win.price)} tokens. The router holds ${fmtUsd(hold)} and sends the job there.`;
+    const runnerUp = sorted[1];
+    verdict.textContent = `${win.label} (${win.gpu}) wins at ${fmtPerM(win.price)} tokens. The router holds ${fmtUsd(hold)} and sends the job there.` + (runnerUp ? ` ${runnerUp.label} was next at ${fmtPerM(runnerUp.price)}.` : ' It was the only one that fit.');
     route.disabled = false;
     shuffle.disabled = false;
   }
@@ -173,7 +188,7 @@ export function simulatorSection(): HTMLElement {
     h(
       'div',
       { class: 'container' },
-      h('div', { class: 'section-head reveal' }, h('h2', null, 'Route one yourself'), h('p', null, 'Six made-up nodes, the real rules. Change the job and see who gets it.')),
+      h('div', { class: 'section-head reveal' }, h('h2', null, 'Route one yourself'), h('p', null, 'Nine made-up machines, from a laptop tab to a rented card, and the real rules. Change the job and see who gets it: the cheapest machine that fits wins, not the biggest.')),
       h(
         'div',
         { class: 'sim-grid reveal', 'data-delay': '1' },
