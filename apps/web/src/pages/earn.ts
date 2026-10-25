@@ -11,8 +11,6 @@ import { nodeRuntime, type NodeSettings } from '../lib/noderuntime';
 import { h, clear, fmtMs, mountReveals, timeHM, copyText, isPreview, fmtPerM } from '../lib/dom';
 import { API_BASE } from '../lib/api';
 import { loadOrCreateNodeKey, importNodeKey } from '../lib/keys';
-import { Field, LIGHT } from '../lib/field';
-import { live } from '../lib/live';
 import type { Page } from '../main';
 
 const PREFS = 'docket.node.prefs';
@@ -211,11 +209,6 @@ export function earnPage(): Page {
     }
   });
 
-  // --- live map of this node's neighbourhood -------------------------------------
-  const miniCanvas = h('canvas', { class: 'mini-field tall', 'aria-hidden': 'true' });
-  const mini = new Field(miniCanvas, LIGHT, { ghosts: 0, labels: true, interactive: true, routerLabel: 'router' });
-  const unsubLive = live.subscribe((ev) => mini.apply(ev));
-
   const install = `git clone <repo> docket && cd docket && npm install\nDOCKET_URL=${API_BASE || location.origin} npm run worker`;
   const pub = h('code', { class: 'small', style: { wordBreak: 'break-all' } }, key.publicKey);
 
@@ -237,7 +230,6 @@ export function earnPage(): Page {
           statusNote,
           progress,
           gpuLine,
-          miniCanvas,
           h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Node name on the map'), label), h('label', { class: 'field' }, h('span', null, 'Your price, $ per 1M tokens'), price)),
           h('label', { class: 'row' }, serveModel, modelLabel),
           h('label', { class: 'row' }, background, h('span', null, 'Keep working when this tab is in the background')),
@@ -290,8 +282,6 @@ export function earnPage(): Page {
       // The node keeps running; only the page's listeners go away.
       unsubRuntime();
       clearInterval(meTimer);
-      unsubLive();
-      mini.destroy();
       stopReveal();
     },
   };

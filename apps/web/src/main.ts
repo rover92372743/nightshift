@@ -53,6 +53,32 @@ const mark = svg(`<svg viewBox="0 0 32 32" aria-hidden="true">
   <rect x="12" y="17" width="8" height="1.6" rx=".8" fill="#2745D6"/>
 </svg>`);
 
+// --- theme: system by default, remembered when the person picks one ---
+const THEME_KEY = 'docket.theme';
+function currentTheme(): 'light' | 'dark' {
+  const forced = document.documentElement.dataset.theme;
+  if (forced === 'light' || forced === 'dark') return forced;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function applyTheme(t: 'light' | 'dark' | null): void {
+  if (t) document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+  try {
+    if (t) localStorage.setItem(THEME_KEY, t);
+    else localStorage.removeItem(THEME_KEY);
+  } catch {
+    /* ignore */
+  }
+  document.dispatchEvent(new CustomEvent('themechange', { detail: currentTheme() }));
+}
+try {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+} catch {
+  /* ignore */
+}
+export { currentTheme };
+
 function topbar(): void {
   const nav = h(
     'nav',
@@ -76,6 +102,19 @@ function topbar(): void {
   live.subscribe(() => {});
 
   const menu = h('button', { class: 'btn secondary icon menu-btn', 'aria-label': 'Menu', onClick: () => nav.classList.toggle('is-open') }, '☰');
+  const sun = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  const moon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  const themeBtn = h('button', { class: 'theme-btn', type: 'button', 'aria-label': 'Toggle night mode', title: 'Night mode' });
+  const paint = () => (themeBtn.innerHTML = currentTheme() === 'dark' ? sun : moon);
+  themeBtn.addEventListener('click', () => {
+    applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+    paint();
+  });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    paint();
+    document.dispatchEvent(new CustomEvent('themechange', { detail: currentTheme() }));
+  });
+  paint();
   const bar = document.getElementById('topbar')!;
   bar.appendChild(
     h(
@@ -83,7 +122,7 @@ function topbar(): void {
       { class: 'container' },
       h('a', { class: 'brand', href: '/' }, mark, 'Docket'),
       nav,
-      h('div', { class: 'topbar-right' }, nodePill, pulse, h('a', { class: 'btn sm', href: '/pricing' }, 'For businesses'), menu),
+      h('div', { class: 'topbar-right' }, nodePill, pulse, themeBtn, h('a', { class: 'btn sm', href: '/pricing' }, 'For businesses'), menu),
     ),
   );
   window.addEventListener('scroll', () => bar.classList.toggle('is-scrolled', window.scrollY > 8), { passive: true });

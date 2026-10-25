@@ -3,27 +3,11 @@ import { h, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtUsd, fmtP
 import { live } from '../lib/live';
 import { api, ApiError } from '../lib/api';
 import { receiptEl, sampleReceipt, tilt } from '../lib/receipt';
-import { Field, LIGHT } from '../lib/field';
 import { traceSection } from './trace';
 import { simulatorSection } from './simulator';
-import { navigate } from '../lib/nav';
 import type { Page } from '../main';
 
 export function homePage(): Page {
-  // --- the field behind the hero ------------------------------------------
-  const canvas = h('canvas', { class: 'hero-field', 'aria-hidden': 'true' });
-  const hoverTip = h('div', { class: 'field-tip', hidden: true });
-  const field = new Field(canvas, LIGHT, { ghosts: 24, labels: false, interactive: true, center: [0.56, 0.5], spread: 1.15 });
-  field.onHover = (n) => {
-    hoverTip.hidden = !n;
-    if (n) hoverTip.textContent = `${n.label} · ${n.cls} · ${n.jobs} done · ${fmtPerM(n.price)} tokens`;
-  };
-  field.onClick = () => navigate('/network');
-  canvas.addEventListener('pointermove', (e) => {
-    hoverTip.style.left = `${e.clientX + 14}px`;
-    hoverTip.style.top = `${e.clientY + 14}px`;
-  });
-
   // --- receipt printer ----------------------------------------------------
   const feed = h('div', { class: 'feed-slot' });
   const printer = h('div', { class: 'printer' }, h('div', { class: 'slot' }), h('div', { class: 'paper' }, feed));
@@ -63,7 +47,6 @@ export function homePage(): Page {
   testBtn.addEventListener('click', async () => {
     testBtn.disabled = true;
     testNote.textContent = 'Sending…';
-    field.poke();
     try {
       const job = await api.submitJob({ workload: 'compute', rounds: 60_000 });
       testNote.textContent = `Queued ${job.id.slice(0, 12)}. Watch it travel.`;
@@ -96,7 +79,6 @@ export function homePage(): Page {
   }
 
   const unsub = live.subscribe((ev: LiveEvent) => {
-    field.apply(ev);
     if (ev.t === 'hello' || ev.t === 'stats') applyStats(ev.stats);
     if (ev.t === 'job.done') setTimeout(() => showReceiptForJob(ev.jobId), 1500);
   });
@@ -115,8 +97,6 @@ export function homePage(): Page {
     h(
       'section',
       { class: 'hero' },
-      canvas,
-      hoverTip,
       h(
         'div',
         { class: 'container hero-inner' },
@@ -127,7 +107,7 @@ export function homePage(): Page {
           h(
             'p',
             { class: 'lede reveal', 'data-delay': '2' },
-            'Businesses send batches of work to one endpoint. The router spreads them across independent GPUs, verifies what comes back, and signs a receipt for every task. The dots behind this text are the network, live.',
+            'Businesses send batches of work to one endpoint. The router spreads them across independent GPUs, verifies what comes back, and signs a receipt for every task. The receipt on the right is the latest one on this router.',
           ),
           h(
             'div',
@@ -187,7 +167,6 @@ export function homePage(): Page {
     unmount() {
       unsub();
       stopReveal();
-      field.destroy();
     },
   };
 }
