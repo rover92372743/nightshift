@@ -58,7 +58,7 @@ const THEME_KEY = 'docket.theme';
 function currentTheme(): 'light' | 'dark' {
   const forced = document.documentElement.dataset.theme;
   if (forced === 'light' || forced === 'dark') return forced;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 function applyTheme(t: 'light' | 'dark' | null): void {
   if (t) document.documentElement.dataset.theme = t;
@@ -110,7 +110,7 @@ function topbar(): void {
     applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
     paint();
   });
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
     paint();
     document.dispatchEvent(new CustomEvent('themechange', { detail: currentTheme() }));
   });

@@ -38,18 +38,18 @@ export const LIGHT: FieldPalette = {
 };
 
 export const DARK: FieldPalette = {
-  bg: '#0e1218',
-  link: 'rgba(238,241,244,0.09)',
-  node: '#eef1f4',
-  nodeDim: '#3a4452',
-  router: '#eef1f4',
-  routerInk: '#0e1218',
-  packet: '#6f86ff',
-  receipt: '#3ddc84',
-  busy: '#6f86ff',
-  text: '#eef1f4',
-  textDim: '#7d8aa0',
-  ghost: 'rgba(238,241,244,0.05)',
+  bg: '#07090c',
+  link: 'rgba(56,208,255,0.10)',
+  node: '#cfd8e1',
+  nodeDim: '#2b3542',
+  router: '#e6ebef',
+  routerInk: '#07090c',
+  packet: '#38d0ff',
+  receipt: '#3df28a',
+  busy: '#38d0ff',
+  text: '#e6ebef',
+  textDim: '#6f7c8f',
+  ghost: 'rgba(207,216,225,0.06)',
 };
 
 interface FNode {
@@ -393,7 +393,7 @@ export class Field {
 
     // glow behind the router
     const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w, h) * 0.5);
-    glow.addColorStop(0, pal.bg ? 'rgba(111,134,255,0.16)' : 'rgba(39,69,214,0.08)');
+    glow.addColorStop(0, pal.bg ? 'rgba(56,208,255,0.12)' : 'rgba(0,127,163,0.08)');
     glow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, w, h);
