@@ -68,7 +68,11 @@ export const api = {
   network: () => call<{ stats: NetworkStats; routerKey: string }>('/v1/network'),
   nodes: () => call<{ nodes: PublicNode[] }>('/v1/nodes'),
   me: () => call<{ accountId: string; kind?: string; label?: string | null; balanceMicro: number; ledger: LedgerEntry[] }>('/v1/me'),
-  createKey: (label: string) => call<{ accountId: string; apiKey: string }>('/v1/keys', { method: 'POST', body: JSON.stringify({ label }) }),
+  access: (body: { company: string; email: string; need: string }) => call<{ ok: true }>('/v1/access', { method: 'POST', body: JSON.stringify(body) }),
+  submitBatch: (items: Record<string, unknown>[], label?: string) => call<{ id: string; total: number; jobIds: string[] }>('/v1/batches', { method: 'POST', body: JSON.stringify({ items, label }) }),
+  batches: () => call<{ batches: BatchSummary[] }>('/v1/batches'),
+  batch: (id: string) => call<BatchSummary>(`/v1/batches/${id}`),
+  batchResults: (id: string) => call<{ batch: BatchSummary; items: BatchItem[] }>(`/v1/batches/${id}/results`),
   job: (id: string) => call<JobRecord & { receipt?: Receipt }>(`/v1/jobs/${id}`),
   jobs: () => call<{ jobs: JobRecord[] }>('/v1/jobs'),
   submitJob: (body: Record<string, unknown>) => call<JobRecord>('/v1/jobs', { method: 'POST', body: JSON.stringify(body) }),
@@ -85,6 +89,29 @@ export const api = {
     jobs: () => call<{ jobs: JobRecord[] }>('/v1/admin/jobs'),
   },
 };
+
+export interface BatchSummary {
+  id: string;
+  label: string | null;
+  total: number;
+  createdAt: number;
+  counts: Record<'queued' | 'assigned' | 'running' | 'done' | 'failed' | 'cancelled', number>;
+  costMicro: number;
+  heldMicro: number;
+}
+export interface BatchItem {
+  index: number;
+  jobId: string;
+  status: string;
+  prompt?: string;
+  rounds?: number;
+  output?: string;
+  units?: number;
+  durationMs?: number;
+  costMicro?: number;
+  receiptId?: string;
+  error?: string;
+}
 
 export interface AdminAccount {
   id: string;

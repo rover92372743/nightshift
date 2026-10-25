@@ -80,9 +80,27 @@ Your last 20 jobs.
 
 `{accountId, balanceMicro, ledger: [...]}` for the session or key making the call.
 
-### `POST /v1/keys`
+### `POST /v1/access`
 
-`{"label": "…"}` → `{accountId, apiKey}`. The key is shown once; we store a hash. Five per hour per address.
+`{"company", "email", "need"}` → `{ok: true}`. Asks for a key. Keys are not self-serve: the operator mints one from the console (`keys new`) and sends it to you. Five per hour per address.
+
+### Batches
+
+#### `POST /v1/batches`
+
+`{"items": [JobInput, …], "label": "eval run 3"}` → `202 {id, total, jobIds}`. Up to 500 inputs. The whole batch is held for in one transaction: if your balance can't cover all of it, nothing is queued (`402`).
+
+#### `GET /v1/batches`
+
+Your recent batches with counts.
+
+#### `GET /v1/batches/:id`
+
+`{id, label, total, counts: {queued, assigned, running, done, failed}, costMicro, heldMicro}`.
+
+#### `GET /v1/batches/:id/results[?format=jsonl]`
+
+Every item with its output, units, cost, receipt id. With `format=jsonl` the body is one JSON object per line, as a download.
 
 ## Receipts
 

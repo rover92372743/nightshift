@@ -4,7 +4,7 @@
 // commands: accounts, grants, inquiries. Same page, same prompt.
 
 import type { JobRecord, LedgerEntry, Receipt } from '@nightshift/shared';
-import { api, ApiError, session, API_BASE, type AdminAccount } from '../lib/api';
+import { api, ApiError, session, API_BASE, type AdminAccount, type BatchSummary } from '../lib/api';
 import { h, fmtMs, fmtUsd, timeHM, isPreview, mountReveals } from '../lib/dom';
 import { live } from '../lib/live';
 import type { Page } from '../main';
@@ -108,8 +108,43 @@ export function consolePage(): Page {
     }
   }
 
+  function printBatch(bt: BatchSummary): void {
+    const pending = bt.counts.queued + bt.counts.assigned + bt.counts.running;
+    out(`${bt.id}${bt.label ? `  ${bt.label}` : ''}  ${bt.counts.done}/${bt.total} done · ${bt.counts.failed} failed · ${pending} pending · ${fmtUsd(bt.costMicro)} charged${bt.heldMicro ? ` · ${fmtUsd(bt.heldMicro)} held` : ''}`);
+  }
+  const watchingBatches = new Set<string>();
+  async function watchBatch(id: string): Promise<void> {
+    if (watchingBatches.has(id)) return;
+    watchingBatches.add(id);
+    const line = dim(`${id}  starting…`);
+    const bar = (done: number, failed: number, total: number) => {
+      const w = 24;
+      const d = Math.round((done / total) * w);
+      const f = Math.round((failed / total) * w);
+      return '[' + '█'.repeat(d) + '×'.repeat(f) + '·'.repeat(Math.max(0, w - d - f)) + ']';
+    };
+    try {
+      for (;;) {
+        const bt = await api.batch(id);
+        const finished = bt.counts.done + bt.counts.failed;
+        line.textContent = `${id}  ${bar(bt.counts.done, bt.counts.failed, bt.total)} ${finished}/${bt.total} · ${bt.counts.running} running · ${fmtUsd(bt.costMicro)} so far`;
+        if (finished >= bt.total) {
+          line.remove();
+          (bt.counts.failed ? out : ok)(`${id}  finished: ${bt.counts.done} done, ${bt.counts.failed} failed · ${fmtUsd(bt.costMicro)} charged · "results ${id}" to download`, bt.counts.failed ? 'bad' : 'ok');
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 1200));
+      }
+    } catch (e) {
+      line.remove();
+      bad(`${id}  ${(e as Error).message}`);
+    } finally {
+      watchingBatches.delete(id);
+    }
+  }
+
   function errText(e: unknown): string {
-    if (e instanceof ApiError) return e.status === 401 ? 'not signed in, or the key is wrong. "login <key>"' : e.status === 402 ? `${e.message}. Ask the operator for credits, or "key new" for a fresh account.` : e.message;
+    if (e instanceof ApiError) return e.status === 401 ? 'not signed in, or the key is wrong. "login <key>"' : e.status === 402 ? `${e.message}. Ask the operator for credits.` : e.message;
     return (e as Error).message;
   }
 
@@ -162,13 +197,18 @@ export function consolePage(): Page {
         session.setKey(null);
         session.setAdmin(null);
         paintSign();
-        paintWho(null);
         dim('signed out.');
+        closeConsole();
       },
     },
     me: {
       help: 'me                   account, balance, recent ledger',
       run: async () => {
+        if (session.admin() && !session.key()) {
+          out('operator · no business account on this sign-in. "accounts", "keys new", "grant", "quotes", "all".');
+          who.replaceChildren(h('span', { class: 'tag' }, 'operator'));
+          return;
+        }
         const me = await api.me();
         paintWho(me);
         out(`account   ${me.accountId}${me.label ? `  (${me.label})` : ''}  ${me.kind ?? ''}`);
@@ -235,14 +275,41 @@ export function consolePage(): Page {
         await showReceipt(receipt);
       },
     },
-    key: {
-      help: 'key new <label>      mint a new API key (starts at zero credit)',
-      run: async ([sub, ...rest]) => {
-        if (sub !== 'new') return bad('usage: key new <label>');
-        const r = await api.createKey(rest.join(' ') || 'console key');
-        ok(`account ${r.accountId}`);
-        out(`key     ${r.apiKey}`, 'reply');
-        dim('shown once. "login <key>" to use it; the operator can add credits with "grant".');
+    batches: {
+      help: 'batches              your recent batches with progress',
+      run: async () => {
+        const { batches } = await api.batches();
+        if (!batches.length) return dim('no batches yet. use the Batch panel on the right to upload one.');
+        table([['id', 'label', 'done', 'failed', 'pending', 'cost', 'when'], ...batches.map((bt) => [bt.id, bt.label ?? '', `${bt.counts.done}/${bt.total}`, String(bt.counts.failed), String(bt.counts.queued + bt.counts.assigned + bt.counts.running), fmtUsd(bt.costMicro), timeHM(bt.createdAt)])]);
+      },
+    },
+    batch: {
+      help: 'batch <id>           progress of one batch; "batch <id> results" lists every item',
+      run: async ([id, what]) => {
+        if (!id) return bad('usage: batch <id> [results]');
+        if (what === 'results') {
+          const { items } = await api.batchResults(id);
+          table([['#', 'status', 'input', 'output', 'cost'], ...items.map((it) => [String(it.index), it.status, (it.prompt ?? `compute ${it.rounds}`).slice(0, 36), (it.output ?? it.error ?? '').slice(0, 48), it.costMicro !== undefined ? fmtUsd(it.costMicro) : ''])]);
+          dim(`"results ${id}" downloads the full set as JSONL.`);
+          return;
+        }
+        const bt = await api.batch(id);
+        printBatch(bt);
+        if (bt.counts.done + bt.counts.failed < bt.total) void watchBatch(id);
+      },
+    },
+    results: {
+      help: 'results <id>         download a batch as JSONL',
+      run: async ([id]) => {
+        if (!id) return bad('usage: results <id>');
+        const { items } = await api.batchResults(id);
+        const blob = new Blob([items.map((x) => JSON.stringify(x)).join('\n') + '\n'], { type: 'application/x-ndjson' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${id}.jsonl`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        ok(`${items.length} items → ${id}.jsonl`);
       },
     },
     admin: {
@@ -402,11 +469,148 @@ export function consolePage(): Page {
     void send(body);
   });
 
+  // --- batch upload: one prompt per line, or JSONL of job inputs -------------------
+  const bFile = h('input', { type: 'file', accept: '.txt,.jsonl,.json,.csv', class: 'input' }) as HTMLInputElement;
+  const bLabel = h('input', { class: 'input', type: 'text', placeholder: 'eval run 3', maxlength: 80 }) as HTMLInputElement;
+  const bModel = h('select', { class: 'select' }, MODELS.map((m) => h('option', { value: m }, m))) as HTMLSelectElement;
+  const bMax = h('input', { class: 'input', type: 'number', min: 16, max: 2048, step: 16, value: 160 }) as HTMLInputElement;
+  const bPreview = h('p', { class: 'small muted' }, 'Plain text: one prompt per line. JSONL: one job input per line (full control: workload, model, billing, maxSeconds).');
+  const bSend = h('button', { class: 'btn stamp', disabled: true }, 'Send batch') as HTMLButtonElement;
+  let parsed: Record<string, unknown>[] = [];
+  bFile.addEventListener('change', async () => {
+    const f = bFile.files?.[0];
+    parsed = [];
+    bSend.disabled = true;
+    if (!f) return;
+    const text = await f.text();
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const jsonl = f.name.endsWith('.jsonl') || f.name.endsWith('.json') || lines.every((l) => l.startsWith('{'));
+    try {
+      parsed = jsonl
+        ? lines.map((l) => JSON.parse(l) as Record<string, unknown>)
+        : lines.map((l) => ({ workload: 'llm', model: bModel.value, messages: [{ role: 'user', content: l.replace(/^"(.*)"$/, '$1') }], maxOutputTokens: Number(bMax.value) }));
+    } catch (e) {
+      bPreview.textContent = `could not parse: ${(e as Error).message}`;
+      return;
+    }
+    if (parsed.length > 500) {
+      bPreview.textContent = `${parsed.length} lines; a batch is at most 500. Split the file.`;
+      parsed = [];
+      return;
+    }
+    bPreview.textContent = `${parsed.length} item${parsed.length === 1 ? '' : 's'} from ${f.name}${jsonl ? ' (JSONL, inputs used as given)' : ` (prompts → ${bModel.value}, ${bMax.value} tokens each)`}.`;
+    bSend.disabled = parsed.length === 0;
+  });
+  bSend.addEventListener('click', async () => {
+    if (!parsed.length) return;
+    echo(`batch upload · ${parsed.length} items${bLabel.value ? ` · "${bLabel.value}"` : ''}`);
+    bSend.disabled = true;
+    try {
+      const r = await api.submitBatch(parsed, bLabel.value || undefined);
+      ok(`${r.id}  ${r.total} items queued`);
+      void watchBatch(r.id);
+    } catch (e) {
+      bad(errText(e));
+    } finally {
+      bSend.disabled = false;
+    }
+  });
+  const batchPanel = h(
+    'div',
+    { class: 'card', style: { display: 'grid', gap: '12px', alignSelf: 'start' } },
+    h('h3', null, 'Send a batch'),
+    h('label', { class: 'field' }, h('span', null, 'File'), bFile),
+    h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Model (for plain text)'), bModel), h('label', { class: 'field' }, h('span', null, 'Max tokens each'), bMax)),
+    h('label', { class: 'field' }, h('span', null, 'Label'), bLabel),
+    bPreview,
+    h('div', { class: 'row' }, bSend),
+    h('p', { class: 'small muted' }, 'Up to 500 items per batch, held for as one transaction. Progress shows in the terminal; "results <id>" downloads JSONL.'),
+  );
+
+  // --- sign-in gate: nothing is shown until a key or the admin key checks out ----------
+  const gKey = h('input', { class: 'input', type: 'password', placeholder: 'ns_… or the operator key', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
+  const gBtn = h('button', { class: 'btn stamp' }, 'Sign in') as HTMLButtonElement;
+  const gErr = h('p', { class: 'small', style: { color: '#ff7b7b', minHeight: '1.2em' } });
+  const rCompany = h('input', { class: 'input', type: 'text', placeholder: 'Company', maxlength: 120 }) as HTMLInputElement;
+  const rEmail = h('input', { class: 'input', type: 'email', placeholder: 'you@company.com', maxlength: 200 }) as HTMLInputElement;
+  const rNeed = h('textarea', { class: 'input', rows: 3, placeholder: 'What you want to run, roughly how much, and when.' }) as HTMLTextAreaElement;
+  const rBtn = h('button', { class: 'btn secondary' }, 'Request access') as HTMLButtonElement;
+  const rMsg = h('p', { class: 'small muted' });
+  rBtn.addEventListener('click', async () => {
+    rBtn.disabled = true;
+    try {
+      await api.access({ company: rCompany.value.trim(), email: rEmail.value.trim(), need: rNeed.value.trim() });
+      rMsg.textContent = 'Got it. Keys are issued by hand; you will hear back by email.';
+      rCompany.value = rEmail.value = rNeed.value = '';
+    } catch (e) {
+      rMsg.textContent = errText(e);
+    } finally {
+      rBtn.disabled = false;
+    }
+  });
+  const gate = h(
+    'div',
+    { class: 'console-gate reveal' },
+    h(
+      'div',
+      { class: 'card flush term-card console-gate-card' },
+      h('div', { class: 'term-bar' }, h('span'), h('span'), h('span'), h('b', null, 'nightshift console · sign in')),
+      h(
+        'div',
+        { style: { padding: '18px 16px', display: 'grid', gap: '12px' } },
+        h('p', { class: 'small', style: { color: '#9aa7b8', margin: 0 } }, 'Access is by key. If you have one, paste it. It stays in this tab and is forgotten when the tab closes.'),
+        h('div', { class: 'row' }, gKey, gBtn),
+        gErr,
+        isPreview() ? h('p', { class: 'small', style: { color: '#7d8aa0', margin: 0 } }, 'Preview: sign in with admin-preview, then mint a business key with "keys new".') : null,
+      ),
+    ),
+    h(
+      'div',
+      { class: 'card', style: { display: 'grid', gap: '12px', alignSelf: 'start' } },
+      h('h3', null, "Don't have a key?"),
+      h('p', { class: 'small muted' }, 'Keys are issued by hand, per business. Tell us what you want to run and we will set one up with an opening balance.'),
+      h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Company'), rCompany), h('label', { class: 'field' }, h('span', null, 'Email'), rEmail)),
+      h('label', { class: 'field' }, h('span', null, 'What you need'), rNeed),
+      h('div', { class: 'row' }, rBtn),
+      rMsg,
+    ),
+  );
+  async function trySignIn(): Promise<void> {
+    const k = gKey.value.trim();
+    if (!k) return;
+    gBtn.disabled = true;
+    gErr.textContent = '';
+    session.setKey(null);
+    session.setAdmin(null);
+    try {
+      // try as operator first, then as a business key
+      session.setAdmin(k);
+      try {
+        await api.admin.me();
+      } catch {
+        session.setAdmin(null);
+        session.setKey(k);
+        await api.me();
+      }
+      gKey.value = '';
+      openConsole();
+      await exec('me');
+    } catch (e) {
+      session.setKey(null);
+      session.setAdmin(null);
+      gErr.textContent = e instanceof ApiError && e.status === 401 ? "That key didn't check out." : errText(e);
+    } finally {
+      gBtn.disabled = false;
+    }
+  }
+  gBtn.addEventListener('click', () => void trySignIn());
+  gKey.addEventListener('keydown', (e) => e.key === 'Enter' && void trySignIn());
+
   // --- who's signed in ----------------------------------------------------------------
   const who = h('div', { class: 'console-who' });
   function paintWho(me: { accountId: string; label?: string | null; balanceMicro: number } | null): void {
     if (!me) {
-      who.replaceChildren(h('span', { class: 'tag' }, 'not signed in'), h('span', { class: 'small muted' }, 'Anonymous sessions get a small allowance so you can try it. Businesses sign in with their key.'));
+      who.replaceChildren(h('span', { class: 'tag' }, 'not signed in'));
       return;
     }
     who.replaceChildren(h('span', { class: 'tag' }, session.admin() ? 'operator' : session.key() ? 'business' : 'session'), h('b', null, me.label || me.accountId), h('span', { class: 'mono small' }, me.accountId), h('span', { class: 'console-balance' }, fmtUsd(me.balanceMicro)));
@@ -420,11 +624,8 @@ export function consolePage(): Page {
     '',
   ];
   banner.forEach((l) => dim(l));
-  if (isPreview()) dim('preview: any key minted here signs in; the operator key is "admin-preview".');
-  dim('type "help" for commands, or use the form. ↑ recalls history.');
+  dim('type "help" for commands, or use the panels. ↑ recalls history.');
   paintSign();
-  void refreshWho();
-  if (session.key() || session.admin()) void exec('me');
 
   const keyLink = h('a', { href: '/docs/console' }, 'Console guide');
   const el = h(
@@ -437,31 +638,63 @@ export function consolePage(): Page {
         'div',
         { class: 'container' },
         h('div', { class: 'section-head reveal' }, h('h1', null, 'Console'), h('p', null, 'Where work gets sent. Sign in with your key, type a task or fill the form, and watch it land on a machine. Every finished task comes back with a signed receipt. ', keyLink, '.')),
+        gate,
         h(
           'div',
-          { class: 'console-grid reveal', 'data-delay': '1' },
+          { class: 'console-grid', hidden: true },
           h('div', { class: 'card flush term-card console-card' }, h('div', { class: 'term-bar' }, h('span'), h('span'), h('span'), h('b', null, 'nightshift console'), who), term, inputRow),
           h(
             'div',
-            { class: 'card', style: { display: 'grid', gap: '12px', alignSelf: 'start' } },
-            h('h3', null, 'Send a task'),
-            h('label', { class: 'field' }, h('span', null, 'Kind'), fWorkload),
-            llmFields,
-            computeFields,
-            h('label', { class: 'field' }, h('span', null, 'Billing'), fBilling),
-            secsField,
-            h('div', { class: 'row' }, fSend),
-            h('p', { class: 'small muted' }, 'The router picks the cheapest idle machine that fits, holds the quoted amount, and charges what was actually used.'),
+            { style: { display: 'grid', gap: '18px', alignSelf: 'start' } },
+            h(
+              'div',
+              { class: 'card', style: { display: 'grid', gap: '12px' } },
+              h('h3', null, 'Send a task'),
+              h('label', { class: 'field' }, h('span', null, 'Kind'), fWorkload),
+              llmFields,
+              computeFields,
+              h('label', { class: 'field' }, h('span', null, 'Billing'), fBilling),
+              secsField,
+              h('div', { class: 'row' }, fSend),
+              h('p', { class: 'small muted' }, 'The router picks the cheapest idle machine that fits, holds the quoted amount, and charges what was actually used.'),
+            ),
+            batchPanel,
           ),
         ),
       ),
     ),
   );
+  const grid = el.querySelector<HTMLElement>('.console-grid')!;
+  function openConsole(): void {
+    gate.hidden = true;
+    grid.hidden = false;
+    paintSign();
+    void refreshWho();
+    setTimeout(() => input.focus(), 50);
+  }
+  function closeConsole(): void {
+    grid.hidden = true;
+    gate.hidden = false;
+    paintWho(null);
+    setTimeout(() => gKey.focus(), 50);
+  }
+  if (session.key() || session.admin()) {
+    // a key from earlier in this tab: check it still works
+    (session.admin() ? api.admin.me() : api.me())
+      .then(() => {
+        openConsole();
+        void exec('me');
+      })
+      .catch(() => {
+        session.setKey(null);
+        session.setAdmin(null);
+        closeConsole();
+      });
+  } else closeConsole();
   const unreveal = mountReveals(el);
   el.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('.console-card') && !window.getSelection()?.toString()) input.focus();
   });
-  setTimeout(() => input.focus(), 50);
   return { el, title: 'Console · Nightshift', unmount: () => unreveal() };
 }
 

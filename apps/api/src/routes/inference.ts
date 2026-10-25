@@ -85,6 +85,65 @@ export function inferenceRoutes(ctx: Ctx): FastifyPluginAsync {
       return job;
     });
 
+    // Batches: up to 500 inputs in one call. Held for as one transaction.
+    app.post<{ Body: { items?: Partial<JobInput>[]; label?: string } }>('/batches', limited, async (req, reply) => {
+      const acct = who(req, reply);
+      const items = Array.isArray(req.body?.items) ? req.body.items : [];
+      if (items.length === 0 || items.length > 500) throw new JobError(400, 'items: 1 to 500 job inputs');
+      try {
+        const b = ctx.router.enqueueBatch(acct, items, req.body?.label ? String(req.body.label).slice(0, 80) : undefined);
+        reply.code(202);
+        return { id: b.id, total: b.total, jobIds: b.jobs.map((j) => j.id) };
+      } catch (err) {
+        if (err instanceof InsufficientCredits) throw new JobError(402, `not enough credits for the whole batch: need ${err.needed} more, have ${err.have}`);
+        throw err;
+      }
+    });
+
+    app.get('/batches', async (req, reply) => {
+      const acct = who(req, reply);
+      return { batches: ctx.router.batchesFor(acct).map((b) => ({ ...b, ...ctx.router.batch(acct, b.id)! })) };
+    });
+
+    app.get<{ Params: { id: string } }>('/batches/:id', async (req, reply) => {
+      const acct = who(req, reply);
+      const b = ctx.router.batch(acct, req.params.id);
+      if (!b) {
+        reply.code(404);
+        return { error: { message: 'batch not found' } };
+      }
+      return b;
+    });
+
+    /** Every item with its output. ?format=jsonl streams one object per line for tooling. */
+    app.get<{ Params: { id: string }; Querystring: { format?: string } }>('/batches/:id/results', async (req, reply) => {
+      const acct = who(req, reply);
+      const b = ctx.router.batch(acct, req.params.id);
+      if (!b) {
+        reply.code(404);
+        return { error: { message: 'batch not found' } };
+      }
+      const items = ctx.router.batchJobs(acct, req.params.id).map((j, i) => ({
+        index: i,
+        jobId: j.id,
+        status: j.status,
+        prompt: j.input.messages?.[j.input.messages.length - 1]?.content,
+        rounds: j.input.rounds,
+        output: j.output?.text ?? j.output?.digest,
+        units: j.output?.units,
+        durationMs: j.output?.durationMs,
+        costMicro: j.costMicro,
+        receiptId: j.status === 'done' ? ctx.router.receipt(j.id)?.id : undefined,
+        error: j.error,
+      }));
+      if (req.query.format === 'jsonl') {
+        reply.header('content-type', 'application/x-ndjson');
+        reply.header('content-disposition', `attachment; filename="${b.id}.jsonl"`);
+        return items.map((x) => JSON.stringify(x)).join('\n') + '\n';
+      }
+      return { batch: b, items };
+    });
+
     app.get<{ Params: { id: string } }>('/jobs/:id', async (req, reply) => {
       const acct = who(req, reply);
       const job = ctx.router.get(req.params.id);

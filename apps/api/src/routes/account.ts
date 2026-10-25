@@ -38,14 +38,23 @@ export function accountRoutes(ctx: Ctx): FastifyPluginAsync {
       },
     );
 
-    // Anyone can mint a key. It starts at zero; the operator tops it up
-    // (scripts/grant.mjs) or you wire a payment flow in front of this.
-    app.post<{ Body: { label?: string } }>(
-      '/keys',
+    // Keys are not self-serve. A business asks (the form on the pricing page
+    // or the console's sign-in screen posts here), the operator mints one from
+    // the console with `keys new`, and sends it over a channel they trust.
+    app.post<{ Body: { company?: string; email?: string; need?: string } }>(
+      '/access',
       { config: { rateLimit: { max: 5, timeWindow: '1 hour' } } },
-      async (req) => {
-        const { accountId, apiKey } = ctx.ledger.createApiKey(String(req.body?.label ?? 'unnamed key').slice(0, 64));
-        return { accountId, apiKey, note: 'store this; it is not shown again' };
+      async (req, reply) => {
+        const b = req.body ?? {};
+        const email = String(b.email ?? '').trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          reply.code(400);
+          return { error: { message: 'a valid email is required' } };
+        }
+        ctx.db
+          .prepare('INSERT INTO quotes (id, company, email, need, created_at) VALUES (?,?,?,?,?)')
+          .run(id('q'), String(b.company ?? '').slice(0, 120), email.slice(0, 200), 'ACCESS REQUEST · ' + String(b.need ?? '').slice(0, 4000), nowMs());
+        return { ok: true };
       },
     );
   };

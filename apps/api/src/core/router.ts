@@ -48,7 +48,7 @@ export class Router {
 
   // --- enqueue ------------------------------------------------------------
 
-  enqueue(requesterId: string, raw: Partial<JobInput>): JobRecord {
+  enqueue(requesterId: string, raw: Partial<JobInput>, batchId?: string): JobRecord {
     const input = this.validate(raw);
     const inputHash = sha256Hex(canonical(input));
     const units = estimateUnits(input);
@@ -81,10 +81,10 @@ export class Router {
       this.ledger.charge(requesterId, priceMicro, job.id);
       this.db
         .prepare(
-          `INSERT INTO jobs (id, status, requester_id, input, input_hash, attempts, price_micro, created_at)
-           VALUES (?,?,?,?,?,?,?,?)`,
+          `INSERT INTO jobs (id, status, requester_id, input, input_hash, attempts, price_micro, created_at, batch_id)
+           VALUES (?,?,?,?,?,?,?,?,?)`,
         )
-        .run(job.id, job.status, requesterId, JSON.stringify(input), inputHash, 0, priceMicro, job.createdAt);
+        .run(job.id, job.status, requesterId, JSON.stringify(input), inputHash, 0, priceMicro, job.createdAt, batchId ?? null);
     });
     tx();
 
@@ -414,6 +414,45 @@ export class Router {
     return rows.map(rowToJob).map(withoutContent);
   }
 
+  /**
+   * A batch: many inputs, one id, one transaction. Either every item is
+   * accepted and held for, or none is (so a batch can't half-charge you).
+   */
+  enqueueBatch(requesterId: string, items: Partial<JobInput>[], label?: string): { id: string; total: number; jobs: JobRecord[] } {
+    const batchId = id('bat');
+    const jobs: JobRecord[] = [];
+    const tx = this.db.transaction(() => {
+      this.db.prepare('INSERT INTO batches (id, requester_id, label, total, created_at) VALUES (?,?,?,?,?)').run(batchId, requesterId, label ?? null, items.length, nowMs());
+      for (const it of items) jobs.push(this.enqueue(requesterId, it, batchId));
+    });
+    tx();
+    return { id: batchId, total: items.length, jobs };
+  }
+
+  batch(requesterId: string, batchId: string): { id: string; label: string | null; total: number; createdAt: number; counts: Record<JobStatus, number>; costMicro: number; heldMicro: number } | null {
+    const b = this.db.prepare('SELECT * FROM batches WHERE id=? AND requester_id=?').get(batchId, requesterId) as { id: string; label: string | null; total: number; created_at: number } | undefined;
+    if (!b) return null;
+    const rows = this.db.prepare('SELECT status, COUNT(*) AS n, COALESCE(SUM(cost_micro),0) AS cost, COALESCE(SUM(price_micro),0) AS held FROM jobs WHERE batch_id=? GROUP BY status').all(batchId) as Array<{ status: JobStatus; n: number; cost: number; held: number }>;
+    const counts: Record<JobStatus, number> = { queued: 0, assigned: 0, running: 0, done: 0, failed: 0, cancelled: 0 };
+    let costMicro = 0;
+    let heldMicro = 0;
+    for (const r of rows) {
+      counts[r.status] = r.n;
+      costMicro += r.cost;
+      if (r.status !== 'done' && r.status !== 'failed') heldMicro += r.held;
+    }
+    return { id: b.id, label: b.label, total: b.total, createdAt: b.created_at, counts, costMicro, heldMicro };
+  }
+
+  batchJobs(requesterId: string, batchId: string): JobRecord[] {
+    const rows = this.db.prepare('SELECT * FROM jobs WHERE batch_id=? AND requester_id=? ORDER BY created_at ASC').all(batchId, requesterId) as Array<Record<string, unknown>>;
+    return rows.map(rowToJob);
+  }
+
+  batchesFor(requesterId: string, limit = 20): Array<{ id: string; label: string | null; total: number; createdAt: number }> {
+    return (this.db.prepare('SELECT id, label, total, created_at AS createdAt FROM batches WHERE requester_id=? ORDER BY created_at DESC LIMIT ?').all(requesterId, limit) as Array<{ id: string; label: string | null; total: number; createdAt: number }>);
+  }
+
   recentForRequester(requesterId: string, limit = 20): JobRecord[] {
     const rows = this.db
       .prepare('SELECT * FROM jobs WHERE requester_id=? ORDER BY created_at DESC LIMIT ?')
@@ -506,5 +545,6 @@ export function rowToJob(r: Record<string, unknown>): JobRecord {
     startedAt: (r.started_at as number) ?? undefined,
     finishedAt: (r.finished_at as number) ?? undefined,
     error: (r.error as string) ?? undefined,
+    batchId: (r.batch_id as string) ?? undefined,
   };
 }

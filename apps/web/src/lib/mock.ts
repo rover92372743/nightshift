@@ -74,6 +74,20 @@ export class MockRouter {
   private t0 = Date.now();
   private keys = new Map<string, { id: string; key: string; label: string; createdAt: number }>();
   private quotes: { id: string; company: string; email: string; need: string; createdAt: number }[] = [];
+  private batches = new Map<string, { id: string; label: string | null; total: number; createdAt: number; jobIds: string[] }>();
+  private batchSummary(bt: { id: string; label: string | null; total: number; createdAt: number; jobIds: string[] }) {
+    const counts = { queued: 0, assigned: 0, running: 0, done: 0, failed: 0, cancelled: 0 } as Record<string, number>;
+    let costMicro = 0;
+    let heldMicro = 0;
+    for (const jid of bt.jobIds) {
+      const j = this.jobs.get(jid);
+      if (!j) continue;
+      counts[j.status] = (counts[j.status] ?? 0) + 1;
+      costMicro += j.costMicro ?? 0;
+      if (j.status !== 'done' && j.status !== 'failed') heldMicro += j.priceMicro;
+    }
+    return { id: bt.id, label: bt.label, total: bt.total, createdAt: bt.createdAt, counts, costMicro, heldMicro };
+  }
   private mintKey(label: string) {
     const k = { id: id('acct'), key: 'ns_preview_' + id('k').slice(2), label: label.slice(0, 64), createdAt: Date.now() };
     this.keys.set(k.key, k);
@@ -433,9 +447,36 @@ export class MockRouter {
       this.quotes.unshift({ id: id('q'), company: String(b.company ?? ''), email: String(b.email ?? ''), need: String(b.need ?? ''), createdAt: Date.now() });
       return { status: 200, body: { ok: true } };
     }
-    if (path === '/v1/keys') {
-      const k = this.mintKey(String(b.label ?? 'unnamed key'));
-      return { status: 200, body: { accountId: k.id, apiKey: k.key, note: 'preview key; the real router stores a hash' } };
+    if (path === '/v1/access') {
+      this.quotes.unshift({ id: id('q'), company: String(b.company ?? ''), email: String(b.email ?? ''), need: 'ACCESS REQUEST · ' + String(b.need ?? ''), createdAt: Date.now() });
+      return { status: 200, body: { ok: true } };
+    }
+    if (path === '/v1/batches' && method === 'POST') {
+      const items = Array.isArray(b.items) ? (b.items as Partial<JobInput>[]) : [];
+      if (!items.length || items.length > 500) return { status: 400, body: err('items: 1 to 500 job inputs') };
+      const batchId = id('bat');
+      const jobs: JobRecord[] = [];
+      for (const it of items) {
+        const j = await this.enqueue(it);
+        j.batchId = batchId;
+        jobs.push(j);
+      }
+      this.batches.set(batchId, { id: batchId, label: b.label ? String(b.label) : null, total: items.length, createdAt: Date.now(), jobIds: jobs.map((j) => j.id) });
+      return { status: 202, body: { id: batchId, total: items.length, jobIds: jobs.map((j) => j.id) } };
+    }
+    if (path === '/v1/batches' && method === 'GET') return { status: 200, body: { batches: Array.from(this.batches.values()).reverse().map((bt) => this.batchSummary(bt)) } };
+    if ((x = m(/^\/v1\/batches\/([^/]+)$/))) {
+      const bt = this.batches.get(x[1]);
+      return bt ? { status: 200, body: this.batchSummary(bt) } : { status: 404, body: err('batch not found') };
+    }
+    if ((x = m(/^\/v1\/batches\/([^/]+)\/results$/))) {
+      const bt = this.batches.get(x[1]);
+      if (!bt) return { status: 404, body: err('batch not found') };
+      const items = bt.jobIds.map((jid, i) => {
+        const j = this.jobs.get(jid)!;
+        return { index: i, jobId: j.id, status: j.status, prompt: j.input.messages?.[j.input.messages.length - 1]?.content, rounds: j.input.rounds, output: j.output?.text ?? j.output?.digest, units: j.output?.units, durationMs: j.output?.durationMs, costMicro: j.costMicro, receiptId: j.status === 'done' ? this.receiptFor(j.id)?.id : undefined, error: j.error };
+      });
+      return { status: 200, body: { batch: this.batchSummary(bt), items } };
     }
     if (path === '/v1/receipts' && method === 'GET') return { status: 200, body: { receipts: Array.from(this.receipts.values()).reverse().slice(0, 10) } };
     if (path === '/v1/receipts/verify') return b.receipt?.body ? { status: 200, body: this.checkReceipt(b.receipt) } : { status: 400, body: err('receipt required') };

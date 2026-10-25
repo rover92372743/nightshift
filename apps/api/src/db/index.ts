@@ -36,6 +36,7 @@ const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
   ['jobs', 'scrubbed', 'INTEGER NOT NULL DEFAULT 0'],
   ['nodes', 'online_ms_24h', 'INTEGER NOT NULL DEFAULT 0'],
   ['nodes', 'uptime_day', 'INTEGER NOT NULL DEFAULT 0'],
+  ['jobs', 'batch_id', 'TEXT'],
 ];
 
 function migrate(db: Db): void {

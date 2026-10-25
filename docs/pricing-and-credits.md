@@ -35,7 +35,8 @@ Every one of those movements is a row in `ledger` with a `kind` (`grant`, `charg
 ## Rate limits
 
 - `POST /v1/chat/completions` and `POST /v1/jobs`: 20 per minute per address (`INFER_RPM`).
-- `POST /v1/keys`: 5 per hour per address.
+- `POST /v1/access`: 5 per hour per address.
+- `POST /v1/benchmark/ticket`: 10 per hour per address.
 - `POST /v1/nodes/register`: 30 per minute per address.
 
 These are about protecting nodes and the queue, not the operator's wallet. Work runs on node hardware, so a burst of requests costs the operator nothing beyond a busier SQLite file.

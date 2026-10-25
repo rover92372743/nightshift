@@ -4,6 +4,14 @@
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS batches (
+  id           TEXT PRIMARY KEY,
+  requester_id TEXT NOT NULL,
+  label        TEXT,
+  total        INTEGER NOT NULL,
+  created_at   INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS accounts (
   id          TEXT PRIMARY KEY,
   kind        TEXT NOT NULL CHECK (kind IN ('session','key','node')),

@@ -194,6 +194,8 @@ export interface JobRecord {
   startedAt?: number;
   finishedAt?: number;
   error?: string;
+  /** Set when the job was submitted as part of a batch. */
+  batchId?: string;
 }
 
 /**

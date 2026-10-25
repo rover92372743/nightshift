@@ -25,20 +25,14 @@ The Earn page can also start a lightweight CPU node inside a browser tab, which 
 
 ## Make a request from code
 
-Anonymous browser sessions get a small allowance by cookie. From code you want a key:
+Anonymous browser sessions get a small allowance by cookie. From code you want a key. Keys are minted by the operator, not by the public: set `NIGHTSHIFT_ADMIN_KEY`, open `/console`, and run
 
-```sh
-curl -s -X POST localhost:8787/v1/keys \
-  -H 'content-type: application/json' \
-  -d '{"label":"laptop"}'
-# {"accountId":"acct_…","apiKey":"ns_…","note":"store this; it is not shown again"}
+```
+admin <your admin key>
+keys new "laptop" 5
 ```
 
-Keys start empty. Top one up as the operator:
-
-```sh
-node apps/api/scripts/grant.mjs acct_… 5
-```
+which prints a `ns_…` key with $5 on it. (Or from a shell: `node apps/api/scripts/grant.mjs` adds credits to an existing account.)
 
 Then point any OpenAI-compatible client at `/v1` (press **Send a test job** on the home page first if no model node is online; compute tasks run on any node):
 
