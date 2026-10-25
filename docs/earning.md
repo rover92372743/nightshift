@@ -1,6 +1,6 @@
 # Earning with your hardware
 
-Two ways to run a node. Both earn to a key, both sign a receipt per task, both cash out in SOL or USDC on Solana from $50.
+Two ways to run a node. Both earn to a key, both sign a receipt per task, both cash out in SOL or USDC on Solana. There is a minimum payout.
 
 **In a browser tab, nothing to install.** Open the Earn page and press start. In Chrome or Edge on a machine with a graphics card, the tab serves model tasks through WebGPU; elsewhere it serves compute tasks. The model is fetched once and cached by the browser. The node runs as long as the tab is open, keeps going while you browse the rest of the site, and can keep working in the background if you let it. Close the tab and it stops.
 
@@ -40,7 +40,7 @@ From the machine running the agent:
 ```sh
 npm run cli            # balance, lifetime, uptime, recent tasks
 npm run cli watch      # the same, refreshing
-npm run cli payout 50 usdc <solana address>
+npm run cli payout 20 usdc <solana address>
 ```
 
 Or open the Earn page and paste the contents of `~/.nightshift/worker.key` to see the same view in a browser. The key is kept only in that browser.
@@ -51,11 +51,11 @@ Both views show the task's kind, status, duration and what it paid. Neither show
 
 | Rail | Minimum | What happens |
 |---|---|---|
-| USDC on Solana | $50 | Balance is debited, a payout is recorded, the operator sends it and attaches the transaction reference |
-| SOL | $50 | Same |
+| USDC on Solana | $15 | Balance is debited, a payout is recorded, the operator sends it and attaches the transaction reference |
+| SOL | $15 | Same |
 | Credits | none | Nothing moves; credits can be spent on inference like any other |
 
-Payouts are settled by the operator, not automatically, until a chain adapter with a funded treasury is configured. Until then your terminal shows the request as `pending` and the reference appears when it's sent. See [Payouts and tiers](/docs/payouts-and-tiers) for what wiring that up involves.
+Until a chain adapter with a funded treasury is configured, your terminal shows the request as `pending` and the reference appears when it's sent. See [Payouts and tiers](/docs/payouts-and-tiers) for what wiring that up involves.
 
 Credits are a unit of account inside the router, one credit is one US dollar for pricing and payout purposes, and nothing here promises a yield.
 

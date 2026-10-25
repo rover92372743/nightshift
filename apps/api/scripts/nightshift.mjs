@@ -116,7 +116,7 @@ if (cmd === 'key') {
   try {
     const p = await client.requestPayout(micro, rail, address);
     console.log(`${p.status === 'sent' ? green('sent') : blue(p.status)}  ${usd(p.amountMicro)} via ${p.rail}  ${dim(p.id)}`);
-    if (p.status === 'pending') console.log(dim('Pending payouts are settled by the operator; this will show a transaction reference once it goes out.'));
+    if (p.status === 'pending') console.log(dim('This will show a transaction reference once it goes out.'));
   } catch (e) {
     console.error(e.message);
     process.exit(1);

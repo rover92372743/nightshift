@@ -76,7 +76,7 @@ export function earnPage(): Page {
       '',
       line('balance', `${usd(me.balanceMicro)}  spendable or payable`),
       line('lifetime', `${usd(n.earnedMicro)} across ${n.jobsDone} task${n.jobsDone === 1 ? '' : 's'}, ${n.unitsVerified} units verified, ${n.jobsFailed} failed`),
-      line('payout', me.balanceMicro >= me.payoutMinMicro ? `eligible (minimum ${usd(me.payoutMinMicro)})` : `${usd(me.payoutMinMicro - me.balanceMicro)} to go before SOL/USDC payout`),
+      line('payout', me.balanceMicro >= me.payoutMinMicro ? 'eligible' : `${usd(me.payoutMinMicro - me.balanceMicro)} to minimum`),
     ];
     if (me.payouts.length) {
       rows.push('', 'payouts');
@@ -184,11 +184,11 @@ export function earnPage(): Page {
   stopBtn.addEventListener('click', () => nodeRuntime.stop());
 
   // --- payout ---------------------------------------------------------------
-  const payAmount = h('input', { class: 'input', type: 'number', min: 50, step: 1, placeholder: '50' }) as HTMLInputElement;
+  const payAmount = h('input', { class: 'input', type: 'number', min: 15, step: 1, placeholder: '15' }) as HTMLInputElement;
   const payRail = h('select', { class: 'select' }, h('option', { value: 'usdc' }, 'USDC on Solana'), h('option', { value: 'sol' }, 'SOL'), h('option', { value: 'credits' }, 'Keep as credits')) as HTMLSelectElement;
   const payAddr = h('input', { class: 'input mono', placeholder: 'Solana wallet address' }) as HTMLInputElement;
   const payBtn = h('button', { class: 'btn secondary', disabled: true }, 'Request payout') as HTMLButtonElement;
-  const payNote = h('p', { class: 'small muted' }, `Payouts open at ${usd(PAYOUT_MIN_MICRO)} earned. SOL and USDC requests are settled by the operator; you will see the transaction reference here once it goes out.`);
+  const payNote = h('p', { class: 'small muted' }, `Minimum payout ${usd(PAYOUT_MIN_MICRO)}. The transaction reference shows here once it goes out.`);
   payRail.addEventListener('change', () => {
     payAddr.style.display = payRail.value === 'credits' ? 'none' : '';
     void refreshMe();
@@ -215,7 +215,7 @@ export function earnPage(): Page {
   const el = h(
     'div',
     { class: 'container section' },
-    h('div', { class: 'section-head reveal' }, h('h1', null, 'Earn with your hardware'), h('p', null, 'Press start and this tab becomes a node, no install. It takes tasks from businesses using the network, you are paid per task by hardware class, and you can cash out in SOL or USDC once you reach $50.')),
+    h('div', { class: 'section-head reveal' }, h('h1', null, 'Earn with your hardware'), h('p', null, 'Press start and this tab becomes a node, no install. It takes tasks from businesses using the network, you are paid per task by hardware class, and you cash out in SOL or USDC. There is a small minimum payout.')),
     h(
       'div',
       { class: 'worker reveal', 'data-delay': '1' },

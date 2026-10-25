@@ -65,7 +65,7 @@ export class Payouts {
   }
 
   minimumMicro(rail: Rail): number {
-    return rail === 'credits' ? 1 : PAYOUT_MIN_MICRO; // $50 before anything leaves the platform
+    return rail === 'credits' ? 1 : PAYOUT_MIN_MICRO; // minimum before anything leaves the platform
   }
 
   async request(accountId: string, amountMicro: number, rail: Rail, address?: string): Promise<PayoutRequest> {

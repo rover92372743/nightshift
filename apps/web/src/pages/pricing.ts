@@ -121,7 +121,7 @@ export function pricingPage(): Page {
         h('thead', null, h('tr', null, h('th', null, 'Hardware class'), h('th', null, 'Typical work'), h('th', { style: { textAlign: 'right' } }, 'Per card-hour'), h('th', null, 'Per 1M output tokens'))),
         h('tbody', null, RATES.map((r) => h('tr', null, h('td', null, r.label), h('td', null, r.examples), h('td', { style: { textAlign: 'right' } }, `$${r.perHour.toFixed(2)}`), h('td', null, r.perMTok === null ? '—' : `$${r.perMTok.toFixed(2)}`)))),
       ),
-      h('p', { class: 'small muted', style: { marginTop: '12px' } }, `Card-hour billing counts the seconds a card held your job, measured by the router. Per-token billing counts output tokens returned. Volume: 10% off above $2,000 a month, 20% above $10,000. Reserved capacity (cards held for you) is quoted. Node operators receive 80% of these rates and cash out from $${PAYOUT_MIN_MICRO / 1e6}.`),
+      h('p', { class: 'small muted', style: { marginTop: '12px' } }, `Card-hour billing counts the seconds a card held your job, measured by the router. Per-token billing counts output tokens returned. Volume: 10% off above $2,000 a month, 20% above $10,000. Reserved capacity (cards held for you) is quoted. Node operators receive 80% of these rates and cash out in SOL or USDC, subject to a minimum payout of $${PAYOUT_MIN_MICRO / 1e6}.`),
     ),
     h(
       'div',
