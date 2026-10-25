@@ -8,11 +8,45 @@ export class ApiError extends Error {
   }
 }
 
+// Console sign-in. A business key goes in Authorization; the operator key in
+// x-admin-key. Both live in sessionStorage so they're gone when the tab closes.
+const KEY_SLOT = 'nightshift.console.key';
+const ADMIN_SLOT = 'nightshift.console.admin';
+function slot(name: string): string | null {
+  try {
+    return sessionStorage.getItem(name);
+  } catch {
+    return null;
+  }
+}
+function setSlot(name: string, v: string | null): void {
+  try {
+    v ? sessionStorage.setItem(name, v) : sessionStorage.removeItem(name);
+  } catch {
+    /* private mode */
+  }
+}
+export const session = {
+  key: () => slot(KEY_SLOT),
+  setKey: (k: string | null) => setSlot(KEY_SLOT, k),
+  admin: () => slot(ADMIN_SLOT),
+  setAdmin: (k: string | null) => setSlot(ADMIN_SLOT, k),
+};
+
+function authHeaders(): Record<string, string> {
+  const out: Record<string, string> = {};
+  const k = session.key();
+  const a = session.admin();
+  if (k) out.authorization = `Bearer ${k}`;
+  if (a) out['x-admin-key'] = a;
+  return out;
+}
+
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
     ...init,
-    headers: { 'content-type': 'application/json', ...(init.headers ?? {}) },
+    headers: { 'content-type': 'application/json', ...authHeaders(), ...(init.headers ?? {}) },
   });
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -33,7 +67,7 @@ export const api = {
   health: () => call<{ ok: boolean; routerKey: string }>('/health'),
   network: () => call<{ stats: NetworkStats; routerKey: string }>('/v1/network'),
   nodes: () => call<{ nodes: PublicNode[] }>('/v1/nodes'),
-  me: () => call<{ accountId: string; balanceMicro: number; ledger: LedgerEntry[] }>('/v1/me'),
+  me: () => call<{ accountId: string; kind?: string; label?: string | null; balanceMicro: number; ledger: LedgerEntry[] }>('/v1/me'),
   createKey: (label: string) => call<{ accountId: string; apiKey: string }>('/v1/keys', { method: 'POST', body: JSON.stringify({ label }) }),
   job: (id: string) => call<JobRecord & { receipt?: Receipt }>(`/v1/jobs/${id}`),
   jobs: () => call<{ jobs: JobRecord[] }>('/v1/jobs'),
@@ -42,7 +76,23 @@ export const api = {
   latestReceipts: () => call<{ receipts: Receipt[] }>('/v1/receipts'),
   receipt: (id: string) => call<{ receipt: Receipt; valid: Verdict }>(`/v1/receipts/${id}`),
   verify: (receipt: Receipt) => call<Verdict>('/v1/receipts/verify', { method: 'POST', body: JSON.stringify({ receipt }) }),
+  admin: {
+    me: () => call<{ admin: true; router: string }>('/v1/admin/me'),
+    accounts: () => call<{ accounts: AdminAccount[] }>('/v1/admin/accounts'),
+    keys: (label: string, credits: number) => call<{ accountId: string; apiKey: string; label: string; balanceMicro: number }>('/v1/admin/keys', { method: 'POST', body: JSON.stringify({ label, credits }) }),
+    grant: (accountId: string, credits: number, note?: string) => call<{ entry: LedgerEntry; balanceMicro: number }>('/v1/admin/grant', { method: 'POST', body: JSON.stringify({ accountId, credits, note }) }),
+    quotes: () => call<{ quotes: { id: string; company: string; email: string; need: string; createdAt: number }[] }>('/v1/admin/quotes'),
+    jobs: () => call<{ jobs: JobRecord[] }>('/v1/admin/jobs'),
+  },
 };
+
+export interface AdminAccount {
+  id: string;
+  kind: string;
+  label: string | null;
+  balanceMicro: number;
+  createdAt: number;
+}
 
 export interface Verdict {
   valid: boolean;

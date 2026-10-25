@@ -39,6 +39,7 @@ With `NIGHTSHIFT_STATIC` set the API serves the built site and falls back to `in
 | `LOG_LEVEL` | `info` | pino level |
 | `REQUEST_LOGGING` | `false` | One log line per request. Addresses and auth headers are redacted even when on |
 | `CONTENT_RETENTION_MIN` | `10` | Minutes to keep prompt/reply text after a job finishes; hashes stay. `0` keeps text |
+| `NIGHTSHIFT_ADMIN_KEY` | unset | Operator key for the console's admin commands and `/v1/admin`. Unset = those routes answer 404 |
 
 ### Reverse proxy
 

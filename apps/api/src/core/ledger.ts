@@ -74,6 +74,22 @@ export class Ledger {
     return { accountId, apiKey };
   }
 
+  /** Operator view: every non-node account with its balance. */
+  accounts(limit = 200): Array<{ id: string; kind: string; label: string | null; balanceMicro: number; createdAt: number }> {
+    const rows = this.db
+      .prepare(
+        `SELECT a.id, a.kind, a.label, a.created_at AS createdAt, COALESCE(SUM(l.delta_micro), 0) AS balanceMicro
+         FROM accounts a LEFT JOIN ledger l ON l.account_id = a.id
+         WHERE a.kind IN ('key','session') GROUP BY a.id ORDER BY a.created_at DESC LIMIT ?`,
+      )
+      .all(limit) as Array<{ id: string; kind: string; label: string | null; balanceMicro: number; createdAt: number }>;
+    return rows;
+  }
+
+  account(accountId: string): { id: string; kind: string; label: string | null } | null {
+    return (this.db.prepare('SELECT id, kind, label FROM accounts WHERE id = ?').get(accountId) as { id: string; kind: string; label: string | null } | undefined) ?? null;
+  }
+
   accountForKey(apiKey: string): string | null {
     const row = this.db.prepare('SELECT id FROM accounts WHERE api_key_hash = ?').get(hashKey(apiKey)) as
       | { id: string }

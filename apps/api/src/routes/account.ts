@@ -9,8 +9,11 @@ export function accountRoutes(ctx: Ctx): FastifyPluginAsync {
 
     app.get('/me', async (req, reply) => {
       const acct = who(req, reply);
+      const a = ctx.ledger.account(acct);
       return {
         accountId: acct,
+        kind: a?.kind ?? 'session',
+        label: a?.label ?? null,
         balanceMicro: ctx.ledger.balance(acct),
         ledger: ctx.ledger.entries(acct, 30),
       };

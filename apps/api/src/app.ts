@@ -19,6 +19,7 @@ import { inferenceRoutes } from './routes/inference.js';
 import { nodeRoutes } from './routes/nodes.js';
 import { networkRoutes } from './routes/network.js';
 import { accountRoutes } from './routes/account.js';
+import { adminRoutes } from './routes/admin.js';
 
 export interface Ctx {
   db: Db;
@@ -80,6 +81,7 @@ export async function buildApp(ctx: Ctx): Promise<FastifyInstance> {
   await app.register(nodeRoutes(ctx), { prefix: '/v1' });
   await app.register(networkRoutes(ctx), { prefix: '/v1' });
   await app.register(accountRoutes(ctx), { prefix: '/v1' });
+  await app.register(adminRoutes(ctx), { prefix: '/v1/admin' });
 
   if (config.staticDir) {
     await app.register(fastifyStatic, { root: path.resolve(config.staticDir), wildcard: false });

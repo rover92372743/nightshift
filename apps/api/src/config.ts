@@ -23,6 +23,8 @@ export const config = {
   inferRpm: Number(env('INFER_RPM', '20')),
   /** Cloud/external tiers are off unless explicitly enabled. See docs/payouts-and-tiers.md. */
   externalEnabled: env('EXTERNAL_ENABLED', 'false') === 'true',
+  /** Operator key for /v1/admin (grants, account list, quotes). Unset = admin routes are off. */
+  adminKey: env('NIGHTSHIFT_ADMIN_KEY', ''),
   logLevel: env('LOG_LEVEL', 'info'),
   /** Log one line per HTTP request (includes the caller's IP). Off by default. */
   requestLogging: env('REQUEST_LOGGING', 'false') === 'true',

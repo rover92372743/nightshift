@@ -7,6 +7,7 @@ import { homePage } from './pages/home';
 import { networkPage } from './pages/network';
 import { earnPage } from './pages/earn';
 import { pricingPage } from './pages/pricing';
+import { consolePage } from './pages/console';
 import { receiptsPage } from './pages/receipts';
 import { docsPage } from './pages/docs';
 
@@ -23,6 +24,7 @@ const routes: Route[] = [
   { path: /^\/network\/?$/, make: () => networkPage() },
   { path: /^\/earn\/?$/, make: () => earnPage() },
   { path: /^\/pricing\/?$/, make: () => pricingPage() },
+  { path: /^\/console\/?$/, make: () => consolePage() },
   { path: /^\/receipts(?:\/([^/]+))?\/?$/, make: (p) => receiptsPage(p[0]) },
   { path: /^\/docs(?:\/([^/]+))?\/?$/, make: (p) => docsPage(p[0]) },
 ];
@@ -86,6 +88,7 @@ function topbar(): void {
     h('a', { href: '/network' }, 'Network'),
     h('a', { href: '/earn' }, 'Earn'),
     h('a', { href: '/pricing' }, 'Pricing'),
+    h('a', { href: '/console' }, 'Console'),
     h('a', { href: '/receipts' }, 'Verify'),
     h('a', { href: '/docs' }, 'Docs'),
   );
@@ -122,7 +125,7 @@ function topbar(): void {
       { class: 'container' },
       h('a', { class: 'brand', href: '/' }, mark, 'Nightshift'),
       nav,
-      h('div', { class: 'topbar-right' }, nodePill, pulse, themeBtn, h('a', { class: 'btn sm', href: '/pricing' }, 'For businesses'), menu),
+      h('div', { class: 'topbar-right' }, nodePill, pulse, themeBtn, h('a', { class: 'btn sm', href: '/console' }, 'Send work'), menu),
     ),
   );
   window.addEventListener('scroll', () => bar.classList.toggle('is-scrolled', window.scrollY > 8), { passive: true });

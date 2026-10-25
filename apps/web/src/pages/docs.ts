@@ -5,7 +5,7 @@ import type { Page } from '../main';
 // The docs folder at the repo root is the single source. Vite inlines them.
 const files = import.meta.glob('../../../../docs/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 
-const ORDER = ['index', 'quickstart', 'api', 'receipts', 'earning', 'run-a-node', 'privacy', 'pricing-and-credits', 'architecture', 'payouts-and-tiers', 'deploy'];
+const ORDER = ['index', 'quickstart', 'console', 'api', 'receipts', 'earning', 'run-a-node', 'privacy', 'pricing-and-credits', 'architecture', 'payouts-and-tiers', 'deploy'];
 
 function slugOf(path: string): string {
   return path.split('/').pop()!.replace(/\.md$/, '');

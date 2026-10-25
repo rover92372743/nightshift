@@ -71,6 +71,14 @@ export class MockRouter {
   private jobs = new Map<string, JobRecord>();
   private receipts = new Map<string, Receipt>();
   private balance = FREE_GRANT_MICRO;
+  private t0 = Date.now();
+  private keys = new Map<string, { id: string; key: string; label: string; createdAt: number }>();
+  private quotes: { id: string; company: string; email: string; need: string; createdAt: number }[] = [];
+  private mintKey(label: string) {
+    const k = { id: id('acct'), key: 'ns_preview_' + id('k').slice(2), label: label.slice(0, 64), createdAt: Date.now() };
+    this.keys.set(k.key, k);
+    return k;
+  }
   private ledger: { id: string; deltaMicro: number; kind: string; ref?: string; createdAt: number }[] = [];
   private sockets = new Set<MockSocket>();
   private lat: number[] = [];
@@ -379,12 +387,56 @@ export class MockRouter {
     let x: RegExpMatchArray | null;
 
     if (path === '/health') return { status: 200, body: { ok: true, routerKey: this.routerKey } };
+
+    // Console sign-in, preview edition. Any key minted here signs in; the
+    // operator key is "admin-preview". One shared balance, since it's all
+    // in-page.
+    const bearer = (headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+    if (bearer && !this.keys.has(bearer)) return { status: 401, body: err('invalid api key') };
+    const keyAcct = bearer ? this.keys.get(bearer)! : null;
+    if (path.startsWith('/v1/admin')) {
+      if ((headers['x-admin-key'] ?? '') !== 'admin-preview') return { status: 401, body: err('admin key required') };
+      if (path === '/v1/admin/me') return { status: 200, body: { admin: true, router: this.routerKey, now: Date.now() } };
+      if (path === '/v1/admin/accounts')
+        return {
+          status: 200,
+          body: { accounts: [{ id: 'sess_preview', kind: 'session', label: 'anonymous session', balanceMicro: this.balance, createdAt: this.t0 }, ...Array.from(this.keys.entries()).map(([, k]) => ({ id: k.id, kind: 'key', label: k.label, balanceMicro: this.balance, createdAt: k.createdAt }))] },
+        };
+      if (path === '/v1/admin/keys') {
+        const k = this.mintKey(String(b.label ?? 'unnamed key'));
+        const credits = Number(b.credits ?? 0);
+        if (credits > 0) {
+          this.balance += Math.round(credits * 1e6);
+          this.ledger.unshift({ id: id('lg'), deltaMicro: Math.round(credits * 1e6), kind: 'grant', ref: 'opening balance', createdAt: Date.now() });
+        }
+        return { status: 200, body: { accountId: k.id, apiKey: k.key, label: k.label, balanceMicro: this.balance } };
+      }
+      if (path === '/v1/admin/grant') {
+        const credits = Number(b.credits);
+        if (!Number.isFinite(credits) || credits === 0) return { status: 400, body: err('credits must be a non-zero number') };
+        const known = b.accountId === 'sess_preview' || Array.from(this.keys.values()).some((k) => k.id === b.accountId);
+        if (!known) return { status: 404, body: err('no such account') };
+        this.balance += Math.round(credits * 1e6);
+        const entry = { id: id('lg'), deltaMicro: Math.round(credits * 1e6), kind: 'grant' as const, ref: String(b.note ?? 'operator grant'), createdAt: Date.now() };
+        this.ledger.unshift(entry);
+        return { status: 200, body: { entry, balanceMicro: this.balance } };
+      }
+      if (path === '/v1/admin/quotes') return { status: 200, body: { quotes: this.quotes } };
+      if (path === '/v1/admin/jobs') return { status: 200, body: { jobs: Array.from(this.jobs.values()).reverse().slice(0, 50).map((j) => ({ ...j, input: { ...j.input, messages: undefined }, output: j.output ? { ...j.output, text: j.output.text === undefined ? undefined : '[hidden]' } : undefined })) } };
+      return { status: 404, body: err('not found') };
+    }
     if (path === '/v1/network') return { status: 200, body: { stats: this.stats(), routerKey: this.routerKey } };
     if (path === '/v1/router-key') return { status: 200, body: { publicKey: this.routerKey, alg: 'ed25519' } };
     if (path === '/v1/nodes' && method === 'GET') return { status: 200, body: { nodes: this.online().map((n) => this.pub(n)) } };
-    if (path === '/v1/me') return { status: 200, body: { accountId: 'sess_preview', balanceMicro: this.balance, ledger: this.ledger.slice(0, 30) } };
-    if (path === '/v1/quotes') return { status: 200, body: { ok: true } };
-    if (path === '/v1/keys') return { status: 200, body: { accountId: id('acct'), apiKey: 'ns_preview_' + id('k'), note: 'preview key; the real router stores a hash' } };
+    if (path === '/v1/me') return { status: 200, body: { accountId: keyAcct?.id ?? 'sess_preview', kind: keyAcct ? 'key' : 'session', label: keyAcct?.label ?? 'anonymous session', balanceMicro: this.balance, ledger: this.ledger.slice(0, 30) } };
+    if (path === '/v1/quotes') {
+      this.quotes.unshift({ id: id('q'), company: String(b.company ?? ''), email: String(b.email ?? ''), need: String(b.need ?? ''), createdAt: Date.now() });
+      return { status: 200, body: { ok: true } };
+    }
+    if (path === '/v1/keys') {
+      const k = this.mintKey(String(b.label ?? 'unnamed key'));
+      return { status: 200, body: { accountId: k.id, apiKey: k.key, note: 'preview key; the real router stores a hash' } };
+    }
     if (path === '/v1/receipts' && method === 'GET') return { status: 200, body: { receipts: Array.from(this.receipts.values()).reverse().slice(0, 10) } };
     if (path === '/v1/receipts/verify') return b.receipt?.body ? { status: 200, body: this.checkReceipt(b.receipt) } : { status: 400, body: err('receipt required') };
     if ((x = m(/^\/v1\/receipts\/([^/]+)$/))) {

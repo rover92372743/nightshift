@@ -17,6 +17,7 @@ Everything is built around the receipt. A node can't claim it did work without s
 ## Where to go next
 
 - [Quickstart](/docs/quickstart): run it locally in two commands.
+- [Console](/docs/console): send tasks from the browser, as a business or as the operator.
 - [API](/docs/api): every endpoint with curl examples.
 - [Receipts](/docs/receipts): the exact bytes that get signed.
 - [Earning](/docs/earning): what node operators are paid, by hardware class, and how to cash out.

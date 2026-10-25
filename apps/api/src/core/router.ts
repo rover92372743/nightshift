@@ -408,6 +408,12 @@ export class Router {
     }));
   }
 
+  /** Operator view across every account, content stripped. */
+  recentAll(limit = 50): JobRecord[] {
+    const rows = this.db.prepare('SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?').all(limit) as Array<Record<string, unknown>>;
+    return rows.map(rowToJob).map(withoutContent);
+  }
+
   recentForRequester(requesterId: string, limit = 20): JobRecord[] {
     const rows = this.db
       .prepare('SELECT * FROM jobs WHERE requester_id=? ORDER BY created_at DESC LIMIT ?')
