@@ -3,7 +3,7 @@ import type { Ctx } from '../app.js';
 import { config } from '../config.js';
 import { nodeAuth } from '../auth.js';
 import { toPublic } from '../core/nodes.js';
-import type { JobOutput, NodeCapabilities, NodeClass, ReceiptBody } from '@docket/shared';
+import type { JobOutput, NodeCapabilities, NodeClass, ReceiptBody } from '@nightshift/shared';
 import type { Rail } from '../core/payouts.js';
 
 interface RegisterBody {

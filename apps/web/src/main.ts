@@ -46,15 +46,15 @@ function toToken(path: string): string {
 let current: Page | null = null;
 
 const mark = svg(`<svg viewBox="0 0 32 32" aria-hidden="true">
-  <rect width="32" height="32" rx="7" fill="#141A22"/>
-  <path d="M9 6h14v18l-1.75-1.5L19.5 24l-1.75-1.5L16 24l-1.75-1.5L12.5 24l-1.75-1.5L9 24z" fill="#EEF1F4"/>
-  <rect x="12" y="10" width="8" height="1.6" rx=".8" fill="#141A22"/>
-  <rect x="12" y="13.5" width="6" height="1.6" rx=".8" fill="#141A22"/>
-  <rect x="12" y="17" width="8" height="1.6" rx=".8" fill="#2745D6"/>
+  <rect width="32" height="32" rx="7" fill="#04060a"/>
+  <path d="M9 6h14v18l-1.75-1.5L19.5 24l-1.75-1.5L16 24l-1.75-1.5L12.5 24l-1.75-1.5L9 24z" fill="#dfe6ee"/>
+  <rect x="12" y="10" width="8" height="1.6" rx=".8" fill="#04060a"/>
+  <rect x="12" y="13.5" width="6" height="1.6" rx=".8" fill="#04060a"/>
+  <rect x="12" y="17" width="8" height="1.6" rx=".8" fill="#8fa3ff"/>
 </svg>`);
 
 // --- theme: system by default, remembered when the person picks one ---
-const THEME_KEY = 'docket.theme';
+const THEME_KEY = 'nightshift.theme';
 function currentTheme(): 'light' | 'dark' {
   const forced = document.documentElement.dataset.theme;
   if (forced === 'light' || forced === 'dark') return forced;
@@ -120,7 +120,7 @@ function topbar(): void {
     h(
       'div',
       { class: 'container' },
-      h('a', { class: 'brand', href: '/' }, mark, 'Docket'),
+      h('a', { class: 'brand', href: '/' }, mark, 'Nightshift'),
       nav,
       h('div', { class: 'topbar-right' }, nodePill, pulse, themeBtn, h('a', { class: 'btn sm', href: '/pricing' }, 'For businesses'), menu),
     ),
@@ -131,7 +131,7 @@ function topbar(): void {
     h(
       'div',
       { class: 'container' },
-      h('span', null, 'Docket. Credits are a unit of account on this router, not a currency. Nothing here promises a yield.'),
+      h('span', null, 'Nightshift. Credits are a unit of account on this router, not a currency. Nothing here promises a yield.'),
       h(
         'nav',
         null,
@@ -163,7 +163,7 @@ async function render(pathname: string): Promise<void> {
   const vt = (document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } }).startViewTransition;
   if (vt && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) await vt.call(document, swap).finished.catch(() => {});
   else swap();
-  document.title = page.title === 'Docket' ? 'Docket' : `${page.title} — Docket`;
+  document.title = page.title === 'Nightshift' ? 'Nightshift' : `${page.title} — Nightshift`;
   for (const a of document.querySelectorAll<HTMLAnchorElement>('.nav a')) {
     const on = a.getAttribute('href') === '/' ? pathname === '/' : pathname.startsWith(a.getAttribute('href')!);
     if (on) a.setAttribute('aria-current', 'page');

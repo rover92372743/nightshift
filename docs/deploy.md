@@ -14,15 +14,15 @@ That produces `packages/shared/dist`, `apps/api/dist` and `apps/web/dist`.
 ## Run
 
 ```sh
-DOCKET_STATIC=apps/web/dist \
-DOCKET_DB=/var/lib/docket/docket.db \
-DOCKET_KEY=/var/lib/docket/router.key \
-CORS_ORIGINS=https://docket.example \
+NIGHTSHIFT_STATIC=apps/web/dist \
+NIGHTSHIFT_DB=/var/lib/nightshift/nightshift.db \
+NIGHTSHIFT_KEY=/var/lib/nightshift/router.key \
+CORS_ORIGINS=https://nightshift.example \
 PORT=8787 \
 npm start
 ```
 
-With `DOCKET_STATIC` set the API serves the built site and falls back to `index.html` for any path that isn't under `/v1`, so client-side routes work on reload.
+With `NIGHTSHIFT_STATIC` set the API serves the built site and falls back to `index.html` for any path that isn't under `/v1`, so client-side routes work on reload.
 
 ### Environment
 
@@ -30,9 +30,9 @@ With `DOCKET_STATIC` set the API serves the built site and falls back to `index.
 |---|---|---|
 | `PORT` | `8787` | |
 | `HOST` | `0.0.0.0` | |
-| `DOCKET_DB` | `data/docket.db` | SQLite file; directory is created |
-| `DOCKET_KEY` | `data/router.key` | ed25519 secret, generated if missing, mode 0600 |
-| `DOCKET_STATIC` | unset | Serve this folder as the site |
+| `NIGHTSHIFT_DB` | `data/nightshift.db` | SQLite file; directory is created |
+| `NIGHTSHIFT_KEY` | `data/router.key` | ed25519 secret, generated if missing, mode 0600 |
+| `NIGHTSHIFT_STATIC` | unset | Serve this folder as the site |
 | `CORS_ORIGINS` | `http://localhost:5173,…` | Comma-separated. Only matters if the site is on another origin |
 | `INFER_RPM` | `20` | Per-address limit on inference endpoints |
 | `EXTERNAL_ENABLED` | `false` | Allow `cloud` and `external` node classes |
@@ -45,21 +45,21 @@ With `DOCKET_STATIC` set the API serves the built site and falls back to `index.
 Put nginx or Caddy in front for TLS. The WebSocket at `/v1/network/live` needs upgrade headers passed through. Caddy does that without being asked:
 
 ```
-docket.example {
+nightshift.example {
   reverse_proxy localhost:8787
 }
 ```
 
 ### Back up two things
 
-`docket.db` (and its `-wal`/`-shm` siblings while running) and `router.key`. The database is the ledger. The key is what makes every receipt the router ever issued checkable. Losing the first loses money; losing the second loses history.
+`nightshift.db` (and its `-wal`/`-shm` siblings while running) and `router.key`. The database is the ledger. The key is what makes every receipt the router ever issued checkable. Losing the first loses money; losing the second loses history.
 
 ### Split hosting
 
 If the site lives on a static host instead, build it with the API origin baked in:
 
 ```sh
-VITE_API_URL=https://api.docket.example npm run build -w apps/web
+VITE_API_URL=https://api.nightshift.example npm run build -w apps/web
 ```
 
 and set `CORS_ORIGINS` on the API to the site's origin. The cookie-based anonymous session then relies on `SameSite=Lax` plus `credentials: 'include'`, which works across subdomains of one site and not across unrelated domains. For unrelated domains, use API keys.

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import nacl from 'tweetnacl';
 import { buildApp, buildContext, type Ctx } from '../src/app.js';
-import { canonical, computeTask, FREE_GRANT_MICRO, type ReceiptBody } from '@docket/shared';
+import { canonical, computeTask, FREE_GRANT_MICRO, type ReceiptBody } from '@nightshift/shared';
 import { sha256Hex, b64u } from '../src/core/crypto.js';
 import type { FastifyInstance } from 'fastify';
 import fs from 'node:fs';
@@ -11,7 +11,7 @@ import path from 'node:path';
 
 // Each test gets a throwaway router with an in-memory DB and a fresh key.
 async function fresh(): Promise<{ app: FastifyInstance; ctx: Ctx; close: () => Promise<void> }> {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docket-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nightshift-test-'));
   const ctx = buildContext({ dbPath: ':memory:', keyPath: path.join(dir, 'router.key') });
   const app = await buildApp(ctx);
   await app.ready();

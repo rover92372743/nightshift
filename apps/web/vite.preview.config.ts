@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 // Builds preview.html into one self-contained file: all JS and CSS inlined,
-// no separate chunks, no worker. Output: dist-preview/docket-preview.html
+// no separate chunks, no worker. Output: dist-preview/nightshift-preview.html
 export default defineConfig({
   build: {
     outDir: 'dist-preview',
@@ -28,10 +28,10 @@ export default defineConfig({
         html = html.replace(/<script type="module"[^>]*src="([^"]+)"[^>]*><\/script>/g, (_m, src) => `<script type="module">${fs.readFileSync(path.join(dir, src), 'utf8')}</script>`);
         html = html.replace(/<link rel="stylesheet"[^>]*href="(\/assets\/[^"]+\.css)"[^>]*>/g, (_m, href) => `<style>${fs.readFileSync(path.join(dir, href), 'utf8')}</style>`);
         html = html.replace(/<link rel="modulepreload"[^>]*>/g, '');
-        fs.writeFileSync(path.join(dir, 'docket-preview.html'), html);
+        fs.writeFileSync(path.join(dir, 'nightshift-preview.html'), html);
         // Artifact flavour: the host wraps the file in its own skeleton, so hand over
         // only title, font link, style and body content.
-        const title = html.match(/<title>[^<]*<\/title>/)?.[0] ?? '<title>Docket</title>';
+        const title = html.match(/<title>[^<]*<\/title>/)?.[0] ?? '<title>Nightshift</title>';
         const fonts = html.match(/<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com[^>]*>/)?.[0] ?? '';
         const style = html.match(/<style>[\s\S]*?<\/style>/)?.[0] ?? '';
         const script = html.match(/<script type="module">[\s\S]*?<\/script>/)?.[0] ?? '';

@@ -3,7 +3,7 @@ import type { Ctx } from '../app.js';
 import { networkStats } from '../core/stats.js';
 import { toPublic } from '../core/nodes.js';
 import { verify } from '../core/crypto.js';
-import { canonical, type LiveEvent, type Receipt } from '@docket/shared';
+import { canonical, type LiveEvent, type Receipt } from '@nightshift/shared';
 
 export function networkRoutes(ctx: Ctx): FastifyPluginAsync {
   return async (app) => {

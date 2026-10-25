@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- $DOCK token mark. A coin with a reeded edge and a receipt at its centre:
-       the receipt is Docket's whole idea, the coin is what it settles in. -->
+  <!-- $NIGHT token mark. A coin with a reeded edge and a receipt at its centre:
+       the receipt is Nightshift's whole idea, the coin is what it settles in. -->
   <defs>
     <radialGradient id="face" cx="38%" cy="32%" r="80%">
       <stop offset="0" stop-color="#2d3a4a"/>
@@ -43,7 +43,7 @@
   <!-- wordmark on the rim -->
   <path id="arc" d="M256 256 m-186 0 a186 186 0 1 1 372 0" fill="none"/>
   <text font-family="Inter Tight, Inter, Helvetica, Arial, sans-serif" font-weight="700" font-size="34" letter-spacing="7" fill="#c9d3e0">
-    <textPath href="#arc" startOffset="50%" text-anchor="middle">DOCK</textPath>
+    <textPath href="#arc" startOffset="50%" text-anchor="middle">NIGHT</textPath>
   </text>
   <path id="arc2" d="M70 256 a186 186 0 0 0 372 0" fill="none"/>
   <text font-family="Inter Tight, Inter, Helvetica, Arial, sans-serif" font-weight="600" font-size="20" letter-spacing="5" fill="#7d8aa0">

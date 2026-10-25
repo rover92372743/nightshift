@@ -52,7 +52,7 @@ export const TIER_LABEL: Record<HardwareTier, string> = {
 
 /**
  * Suggested hourly rates by tier, in micro-credits (1,000,000 = $1). These are
- * what the agent advertises unless the operator sets DOCKET_HOURLY. The
+ * what the agent advertises unless the operator sets NIGHTSHIFT_HOURLY. The
  * Pricing page's list rates sit above them; the gap funds verification and
  * the router.
  */

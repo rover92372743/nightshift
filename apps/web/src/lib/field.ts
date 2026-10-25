@@ -5,7 +5,7 @@
 // Used in the hero (light, ambient, interactive) and on the Network page
 // (dark, bigger, hoverable, clickable). One engine, two palettes.
 
-import type { LiveEvent, NodeClass, PublicNode } from '@docket/shared';
+import type { LiveEvent, NodeClass, PublicNode } from '@nightshift/shared';
 
 export interface FieldPalette {
   bg: string | null;
@@ -38,18 +38,18 @@ export const LIGHT: FieldPalette = {
 };
 
 export const DARK: FieldPalette = {
-  bg: '#07090c',
-  link: 'rgba(56,208,255,0.10)',
-  node: '#cfd8e1',
-  nodeDim: '#2b3542',
-  router: '#e6ebef',
-  routerInk: '#07090c',
-  packet: '#38d0ff',
+  bg: '#020305',
+  link: 'rgba(143,163,255,0.10)',
+  node: '#c9d2dc',
+  nodeDim: '#232c3a',
+  router: '#dfe6ee',
+  routerInk: '#020305',
+  packet: '#8fa3ff',
   receipt: '#3df28a',
-  busy: '#38d0ff',
-  text: '#e6ebef',
-  textDim: '#6f7c8f',
-  ghost: 'rgba(207,216,225,0.06)',
+  busy: '#8fa3ff',
+  text: '#dfe6ee',
+  textDim: '#525d6b',
+  ghost: 'rgba(201,210,220,0.06)',
 };
 
 interface FNode {
@@ -393,7 +393,7 @@ export class Field {
 
     // glow behind the router
     const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w, h) * 0.5);
-    glow.addColorStop(0, pal.bg ? 'rgba(56,208,255,0.12)' : 'rgba(0,127,163,0.08)');
+    glow.addColorStop(0, pal.bg ? 'rgba(143,163,255,0.10)' : 'rgba(61,79,204,0.08)');
     glow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, w, h);

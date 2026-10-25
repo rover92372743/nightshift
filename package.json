@@ -1,5 +1,5 @@
 {
-  "name": "docket",
+  "name": "nightshift",
   "private": true,
   "version": "0.1.0",
   "description": "Route inference to the cheapest machine that can run it, and get a signed receipt back.",
@@ -14,7 +14,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "worker": "node apps/api/scripts/headless-worker.mjs",
-    "cli": "node apps/api/scripts/docket.mjs",
+    "cli": "node apps/api/scripts/nightshift.mjs",
     "build:preview": "npm run build -w packages/shared && cd apps/web && vite build -c vite.preview.config.ts"
   },
   "devDependencies": {

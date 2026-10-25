@@ -6,8 +6,8 @@ Three kinds of caller:
 
 | Caller | How it's identified | Gets |
 |---|---|---|
-| Anonymous session | `docket_sid` cookie, set on first request | A small free allowance, rate limited |
-| API key | `Authorization: Bearer dk_…` | Whatever balance the operator granted |
+| Anonymous session | `nightshift_sid` cookie, set on first request | A small free allowance, rate limited |
+| API key | `Authorization: Bearer ns_…` | Whatever balance the operator granted |
 | Node | `x-node-auth` signed header (see below) | Its own jobs, earnings and payouts |
 
 Money is always an integer number of micro-credits. One credit is 1,000,000 µcr.
@@ -29,7 +29,7 @@ Request:
 }
 ```
 
-Response: the standard `chat.completion` object with an extra `docket` field.
+Response: the standard `chat.completion` object with an extra `nightshift` field.
 
 ```json
 {
@@ -38,7 +38,7 @@ Response: the standard `chat.completion` object with an extra `docket` field.
   "model": "qwen2.5-0.5b-instruct",
   "choices": [{"index": 0, "message": {"role": "assistant", "content": "…"}, "finish_reason": "stop"}],
   "usage": {"prompt_tokens": 3, "completion_tokens": 41, "total_tokens": 44},
-  "docket": {
+  "nightshift": {
     "job_id": "job_…",
     "node_id": "nd_…",
     "receipt_id": "rcpt_…",

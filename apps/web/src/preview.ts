@@ -2,6 +2,6 @@
 // the app boots so every fetch and the live socket hit the simulation.
 import { installMock } from './lib/mock';
 
-(window as unknown as { __DOCKET_PREVIEW__: boolean }).__DOCKET_PREVIEW__ = true;
+(window as unknown as { __NIGHTSHIFT_PREVIEW__: boolean }).__NIGHTSHIFT_PREVIEW__ = true;
 installMock();
 void import('./main');

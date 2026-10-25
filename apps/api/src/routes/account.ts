@@ -17,7 +17,7 @@ export function accountRoutes(ctx: Ctx): FastifyPluginAsync {
     });
 
     // Quote requests from the pricing page. Read them with:
-    //   sqlite3 data/docket.db 'select * from quotes order by created_at desc'
+    //   sqlite3 data/nightshift.db 'select * from quotes order by created_at desc'
     app.post<{ Body: { company?: string; email?: string; need?: string } }>(
       '/quotes',
       { config: { rateLimit: { max: 5, timeWindow: '1 hour' } } },

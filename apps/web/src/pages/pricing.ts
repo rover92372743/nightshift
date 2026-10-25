@@ -3,8 +3,8 @@
 // open models and sit close to the hosted market, where the real competition
 // is. The live floor at the top is what the network quotes right now.
 
-import type { LiveEvent } from '@docket/shared';
-import { PAYOUT_MIN_MICRO } from '@docket/shared';
+import type { LiveEvent } from '@nightshift/shared';
+import { PAYOUT_MIN_MICRO } from '@nightshift/shared';
 import { h, mountReveals } from '../lib/dom';
 import { live } from '../lib/live';
 import { api } from '../lib/api';

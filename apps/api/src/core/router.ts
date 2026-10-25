@@ -15,7 +15,7 @@ import type {
   NodeRecord,
   Receipt,
   ReceiptBody,
-} from '@docket/shared';
+} from '@nightshift/shared';
 import {
   canonical,
   computeTask,
@@ -25,7 +25,7 @@ import {
   LEASE_MS,
   MAX_ATTEMPTS,
   PRICE_FLOOR_PER_1K,
-} from '@docket/shared';
+} from '@nightshift/shared';
 import { sha256Hex, sign, verify, type KeyPair } from './crypto.js';
 import type { Ledger } from './ledger.js';
 import type { Live } from './live.js';

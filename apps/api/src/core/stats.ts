@@ -1,5 +1,5 @@
 import type { Db } from '../db/index.js';
-import type { NetworkStats, NodeClass } from '@docket/shared';
+import type { NetworkStats, NodeClass } from '@nightshift/shared';
 
 export function networkStats(db: Db): NetworkStats {
   const byClass: Record<NodeClass, number> = { browser: 0, native: 0, cloud: 0, external: 0 };

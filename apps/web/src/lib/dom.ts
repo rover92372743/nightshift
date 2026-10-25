@@ -129,5 +129,5 @@ export function copyText(text: string): Promise<void> {
 
 /** True when the page runs with the in-page mock router (see preview.ts). */
 export function isPreview(): boolean {
-  return Boolean((window as unknown as { __DOCKET_PREVIEW__?: boolean }).__DOCKET_PREVIEW__);
+  return Boolean((window as unknown as { __NIGHTSHIFT_PREVIEW__?: boolean }).__NIGHTSHIFT_PREVIEW__);
 }

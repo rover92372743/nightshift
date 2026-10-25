@@ -1,4 +1,4 @@
-import type { LiveEvent, NetworkStats } from '@docket/shared';
+import type { LiveEvent, NetworkStats } from '@nightshift/shared';
 import { h, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtUsd, fmtPerM, isPreview } from '../lib/dom';
 import { live } from '../lib/live';
 import { api, ApiError } from '../lib/api';
@@ -84,7 +84,7 @@ export function homePage(): Page {
   });
 
   // --- headline: words rise one at a time ---------------------------------
-  const words = 'Rent out your GPU.'.split(' ');
+  const words = 'Your GPU works the night shift.'.split(' ');
   const h1 = h(
     'h1',
     { class: 'hero-title' },
@@ -107,7 +107,7 @@ export function homePage(): Page {
           h(
             'p',
             { class: 'lede reveal', 'data-delay': '2' },
-            'Businesses rent idle graphics cards from people like you to run and fine-tune AI models. Your card takes a task, does the work, and you get paid for it. Every task ends in a signed receipt like the one on the right.',
+            'Businesses rent idle graphics cards from people like you to run and fine-tune AI models while you sleep. Your card takes a task, does the work, and you get paid for it. Every task ends in a signed receipt like the one on the right.',
           ),
           h(
             'div',
@@ -163,7 +163,7 @@ export function homePage(): Page {
 
   return {
     el,
-    title: 'Docket',
+    title: 'Nightshift',
     unmount() {
       unsub();
       stopReveal();

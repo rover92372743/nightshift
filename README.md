@@ -1,4 +1,4 @@
-# Docket
+# Nightshift
 
 One endpoint for inference. Each request runs on the cheapest machine that can take it and comes back with a receipt signed by that machine and by the router that checked it. Your own computer can be one of those machines.
 
@@ -24,7 +24,7 @@ docs/            What the site's Docs section renders
 |---|---|
 | `npm run dev` | API and site with reload |
 | `npm run build` | Everything to `dist/` |
-| `npm start` | The built API; set `DOCKET_STATIC=apps/web/dist` to serve the site too |
+| `npm start` | The built API; set `NIGHTSHIFT_STATIC=apps/web/dist` to serve the site too |
 | `npm run worker` | A terminal node that serves compute jobs |
 | `npm run typecheck` | All three workspaces |
 | `npm test` | API tests |

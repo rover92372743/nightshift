@@ -11,24 +11,24 @@ Browsers throttle hidden tabs, so background earning is slower than foreground. 
 ## From a terminal
 
 ```sh
-DOCKET_URL=http://localhost:8787 npm run worker
+NIGHTSHIFT_URL=http://localhost:8787 npm run worker
 ```
 
 Environment:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DOCKET_URL` | `http://localhost:8787` | The router |
-| `DOCKET_LABEL` | `<hostname> (gpu)` or `(cli)` | Name on the map. Pick something that doesn't identify you |
-| `DOCKET_PRICE` | by hardware class | µcr per 1k units for token-billed jobs. Floor is 200 |
-| `DOCKET_HOURLY` | by hardware class | µcr per hour for time-billed jobs (1,000,000 = $1). Floor is 10,000 |
-| `DOCKET_LLM_URL` | unset | An OpenAI-compatible server on this machine, e.g. `http://localhost:8080/v1` |
-| `DOCKET_MODELS` | unset | Comma-separated model names you serve, as customers will ask for them |
-| `DOCKET_MAX_OUT` | `1024` | Max output tokens per task |
+| `NIGHTSHIFT_URL` | `http://localhost:8787` | The router |
+| `NIGHTSHIFT_LABEL` | `<hostname> (gpu)` or `(cli)` | Name on the map. Pick something that doesn't identify you |
+| `NIGHTSHIFT_PRICE` | by hardware class | µcr per 1k units for token-billed jobs. Floor is 200 |
+| `NIGHTSHIFT_HOURLY` | by hardware class | µcr per hour for time-billed jobs (1,000,000 = $1). Floor is 10,000 |
+| `NIGHTSHIFT_LLM_URL` | unset | An OpenAI-compatible server on this machine, e.g. `http://localhost:8080/v1` |
+| `NIGHTSHIFT_MODELS` | unset | Comma-separated model names you serve, as customers will ask for them |
+| `NIGHTSHIFT_MAX_OUT` | `1024` | Max output tokens per task |
 
 On startup the agent runs `nvidia-smi` (or `system_profiler` on a Mac) to find the GPU and its memory, assigns a hardware class, and picks the suggested price for that class unless you set one. The class and price are visible on the map and in `npm run cli`.
 
-The key is kept at `~/.docket/worker.key`. Same rule: lose it, lose the node.
+The key is kept at `~/.nightshift/worker.key`. Same rule: lose it, lose the node.
 
 ### Serving model tasks
 
@@ -37,11 +37,11 @@ Run any OpenAI-compatible server locally and point the agent at it:
 ```sh
 # llama.cpp
 llama-server -m qwen2.5-7b-instruct-q4_k_m.gguf --port 8080
-DOCKET_LLM_URL=http://localhost:8080/v1 DOCKET_MODELS=qwen2.5-7b-instruct npm run worker
+NIGHTSHIFT_LLM_URL=http://localhost:8080/v1 NIGHTSHIFT_MODELS=qwen2.5-7b-instruct npm run worker
 
 # Ollama
 ollama serve
-DOCKET_LLM_URL=http://localhost:11434/v1 DOCKET_MODELS=llama3.1:8b npm run worker
+NIGHTSHIFT_LLM_URL=http://localhost:11434/v1 NIGHTSHIFT_MODELS=llama3.1:8b npm run worker
 ```
 
 The agent checks the server answers before advertising `llm`. Model names are free-form strings matched exactly; customers have to ask for the name you list.

@@ -1,6 +1,6 @@
-# Docket
+# Nightshift
 
-Docket is a router for inference across other people's GPUs. A business sends work in the OpenAI chat format. The router finds the cheapest machine on the network that can run it, runs it there, verifies what comes back, and returns the answer with a receipt. The receipt is signed twice: once by the machine that did the work, once by the router that checked it.
+Nightshift is a router for inference across other people's GPUs. A business sends work in the OpenAI chat format. The router finds the cheapest machine on the network that can run it, runs it there, verifies what comes back, and returns the answer with a receipt. The receipt is signed twice: once by the machine that did the work, once by the router that checked it.
 
 The machines belong to node operators who run the agent and are paid per task by their hardware class. Cloud cards and external APIs have a slot in the design but are switched off on this router.
 

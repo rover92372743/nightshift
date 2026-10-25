@@ -2,7 +2,7 @@
 // page. Two workloads: a small instruct model through transformers.js, and
 // the deterministic hash-chain compute task from the shared package.
 
-import { computeTask, type ChatMessage } from '@docket/shared';
+import { computeTask, type ChatMessage } from '@nightshift/shared';
 
 type In =
   | { type: 'load'; model: string }

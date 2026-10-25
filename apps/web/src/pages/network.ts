@@ -1,5 +1,5 @@
-import type { LiveEvent, NetworkStats, NodeClass, PublicNode, HardwareTier } from '@docket/shared';
-import { TIER_LABEL } from '@docket/shared';
+import type { LiveEvent, NetworkStats, NodeClass, PublicNode, HardwareTier } from '@nightshift/shared';
+import { TIER_LABEL } from '@nightshift/shared';
 import { h, clear, tweenNumber, fmtMs, fmtUsd, fmtPerM, fmtHourly, timeHM, mountReveals } from '../lib/dom';
 import { live } from '../lib/live';
 import { api } from '../lib/api';

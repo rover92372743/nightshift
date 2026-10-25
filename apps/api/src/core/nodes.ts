@@ -1,7 +1,7 @@
 import type { Db } from '../db/index.js';
 import { id, nowMs } from '../db/index.js';
-import type { NodeCapabilities, NodeClass, NodeRecord, PublicNode, Workload } from '@docket/shared';
-import { OFFLINE_AFTER_MS, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram } from '@docket/shared';
+import type { NodeCapabilities, NodeClass, NodeRecord, PublicNode, Workload } from '@nightshift/shared';
+import { OFFLINE_AFTER_MS, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram } from '@nightshift/shared';
 import type { Live } from './live.js';
 import type { Ledger } from './ledger.js';
 

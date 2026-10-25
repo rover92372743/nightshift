@@ -11,7 +11,7 @@
 import type { Db } from '../db/index.js';
 import { id, nowMs } from '../db/index.js';
 import type { Ledger } from './ledger.js';
-import { PAYOUT_MIN_MICRO } from '@docket/shared';
+import { PAYOUT_MIN_MICRO } from '@nightshift/shared';
 
 export type Rail = 'credits' | 'usdc' | 'sol';
 

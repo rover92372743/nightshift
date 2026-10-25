@@ -1,4 +1,4 @@
--- Docket schema. Applied idempotently on boot (see db/index.ts).
+-- Nightshift schema. Applied idempotently on boot (see db/index.ts).
 -- Money is stored as integer micro-credits everywhere. Never floats.
 
 PRAGMA journal_mode = WAL;

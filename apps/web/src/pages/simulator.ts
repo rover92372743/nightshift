@@ -3,7 +3,7 @@
 // candidates get eliminated one by one, the survivors sort by price, and the
 // winner get stamped.
 
-import type { NodeClass } from '@docket/shared';
+import type { NodeClass } from '@nightshift/shared';
 import { h, prefersReducedMotion, fmtPerM, fmtUsd } from '../lib/dom';
 
 interface SimNode {

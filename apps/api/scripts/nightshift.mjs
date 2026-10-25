@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 // Node operator CLI: a terminal view of what your key has earned.
 //
-//   docket status                 what the router knows about this node
-//   docket earnings               balance, lifetime, uptime, recent jobs
-//   docket watch                  the same, refreshing every few seconds
-//   docket payout <amount> <rail> [address]   e.g. docket payout 50 usdc 7xK...
-//   docket key                    print this node's public key
+//   nightshift status                 what the router knows about this node
+//   nightshift earnings               balance, lifetime, uptime, recent jobs
+//   nightshift watch                  the same, refreshing every few seconds
+//   nightshift payout <amount> <rail> [address]   e.g. nightshift payout 50 usdc 7xK...
+//   nightshift key                    print this node's public key
 //
-// Uses the key in ~/.docket/worker.key (the same one the worker uses), so
-// the router answers only for the node you actually run. Set DOCKET_URL to
+// Uses the key in ~/.nightshift/worker.key (the same one the worker uses), so
+// the router answers only for the node you actually run. Set NIGHTSHIFT_URL to
 // point at a router other than localhost.
 
 import nacl from 'tweetnacl';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { NodeClient, PAYOUT_MIN_MICRO, TIER_LABEL } from '@docket/shared';
+import { NodeClient, PAYOUT_MIN_MICRO, TIER_LABEL } from '@nightshift/shared';
 
-const baseUrl = process.env.DOCKET_URL ?? 'http://localhost:8787';
-const keyFile = process.env.DOCKET_KEYFILE ?? path.join(os.homedir(), '.docket', 'worker.key');
+const baseUrl = process.env.NIGHTSHIFT_URL ?? 'http://localhost:8787';
+const keyFile = process.env.NIGHTSHIFT_KEYFILE ?? path.join(os.homedir(), '.nightshift', 'worker.key');
 const [cmd = 'earnings', ...args] = process.argv.slice(2);
 
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
@@ -47,7 +47,7 @@ async function connect() {
     baseUrl,
     signer,
     class: 'native',
-    label: process.env.DOCKET_LABEL ?? `${os.hostname()} (cli)`,
+    label: process.env.NIGHTSHIFT_LABEL ?? `${os.hostname()} (cli)`,
     capabilities: { workloads: ['compute'], models: [], maxPromptChars: 4000, maxOutputTokens: 256, pricePer1k: 250 },
     lookupOnly: true,
   });
@@ -59,7 +59,7 @@ function render(me) {
   const n = me.node;
   const hw = n.capabilities.hardware;
   const lines = [
-    `${bold('Docket')} ${dim(baseUrl)}`,
+    `${bold('Nightshift')} ${dim(baseUrl)}`,
     '',
     `${dim('node')}      ${n.label}  ${dim(n.id)}`,
     `${dim('status')}    ${n.status === 'offline' ? 'offline' : green(n.status)}`,
@@ -106,7 +106,7 @@ if (cmd === 'key') {
   const [amount, rail = 'usdc', address] = args;
   const micro = Math.round(Number(amount) * 1e6);
   if (!micro || !['credits', 'usdc', 'sol'].includes(rail)) {
-    console.error('usage: docket payout <amount> <credits|usdc|sol> [solana address]');
+    console.error('usage: nightshift payout <amount> <credits|usdc|sol> [solana address]');
     process.exit(1);
   }
   if (rail !== 'credits' && micro < PAYOUT_MIN_MICRO) {

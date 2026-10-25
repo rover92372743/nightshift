@@ -2,23 +2,23 @@
 // The node agent. Runs on a machine with (ideally) a GPU and serves work from
 // the router's catalogue.
 //
-//   DOCKET_URL=https://router.example npm run worker
+//   NIGHTSHIFT_URL=https://router.example npm run worker
 //
 // Workloads:
 //   compute   always on; the deterministic hash chain, used for spot checks and capacity tests
-//   llm       on when DOCKET_LLM_URL points at an OpenAI-compatible server on this machine
+//   llm       on when NIGHTSHIFT_LLM_URL points at an OpenAI-compatible server on this machine
 //             (llama.cpp's llama-server, Ollama, vLLM, LM Studio all qualify)
 //
 // Environment:
-//   DOCKET_URL        router, default http://localhost:8787
-//   DOCKET_LABEL      name on the map, default "<hostname> (gpu)" or "(cli)"
-//   DOCKET_PRICE      µcr per 1k units; default depends on detected hardware tier
-//   DOCKET_HOURLY     µcr per hour for time-billed jobs; default depends on tier (1,000,000 = $1)
-//   DOCKET_LLM_URL    e.g. http://localhost:8080/v1  (llama-server) or http://localhost:11434/v1 (Ollama)
-//   DOCKET_MODELS     comma-separated model names you serve, as customers will ask for them
-//   DOCKET_MAX_OUT    max output tokens per task, default 1024
+//   NIGHTSHIFT_URL        router, default http://localhost:8787
+//   NIGHTSHIFT_LABEL      name on the map, default "<hostname> (gpu)" or "(cli)"
+//   NIGHTSHIFT_PRICE      µcr per 1k units; default depends on detected hardware tier
+//   NIGHTSHIFT_HOURLY     µcr per hour for time-billed jobs; default depends on tier (1,000,000 = $1)
+//   NIGHTSHIFT_LLM_URL    e.g. http://localhost:8080/v1  (llama-server) or http://localhost:11434/v1 (Ollama)
+//   NIGHTSHIFT_MODELS     comma-separated model names you serve, as customers will ask for them
+//   NIGHTSHIFT_MAX_OUT    max output tokens per task, default 1024
 //
-// The key lives in ~/.docket/worker.key. Customer text is processed and never
+// The key lives in ~/.nightshift/worker.key. Customer text is processed and never
 // printed, logged or written to disk by this script.
 
 import nacl from 'tweetnacl';
@@ -26,12 +26,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { NodeClient, runWorker, computeTask, tierForVram, TIER_LABEL, HOURLY_SUGGESTED } from '@docket/shared';
+import { NodeClient, runWorker, computeTask, tierForVram, TIER_LABEL, HOURLY_SUGGESTED } from '@nightshift/shared';
 
-const baseUrl = process.env.DOCKET_URL ?? 'http://localhost:8787';
-const llmUrl = process.env.DOCKET_LLM_URL?.replace(/\/$/, '');
-const models = (process.env.DOCKET_MODELS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-const maxOut = Number(process.env.DOCKET_MAX_OUT ?? 1024);
+const baseUrl = process.env.NIGHTSHIFT_URL ?? 'http://localhost:8787';
+const llmUrl = process.env.NIGHTSHIFT_LLM_URL?.replace(/\/$/, '');
+const models = (process.env.NIGHTSHIFT_MODELS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+const maxOut = Number(process.env.NIGHTSHIFT_MAX_OUT ?? 1024);
 
 // --- hardware ---------------------------------------------------------------
 
@@ -60,13 +60,13 @@ const hw = detectGpu();
 const tier = tierForVram(hw.vramGb);
 // Suggested prices per tier, µcr per 1k units. Operators can override.
 const SUGGESTED = { cpu: 250, 'gpu-8': 400, 'gpu-16': 600, 'gpu-24': 900, 'gpu-48': 1500, 'gpu-80': 2600 };
-const price = Number(process.env.DOCKET_PRICE ?? SUGGESTED[tier]);
-const hourly = Number(process.env.DOCKET_HOURLY ?? HOURLY_SUGGESTED[tier]);
-const label = process.env.DOCKET_LABEL ?? `${os.hostname()} (${hw.gpu ? 'gpu' : 'cli'})`;
+const price = Number(process.env.NIGHTSHIFT_PRICE ?? SUGGESTED[tier]);
+const hourly = Number(process.env.NIGHTSHIFT_HOURLY ?? HOURLY_SUGGESTED[tier]);
+const label = process.env.NIGHTSHIFT_LABEL ?? `${os.hostname()} (${hw.gpu ? 'gpu' : 'cli'})`;
 
 // --- key --------------------------------------------------------------------
 
-const keyFile = process.env.DOCKET_KEYFILE ?? path.join(os.homedir(), '.docket', 'worker.key');
+const keyFile = process.env.NIGHTSHIFT_KEYFILE ?? path.join(os.homedir(), '.nightshift', 'worker.key');
 let kp;
 if (fs.existsSync(keyFile)) {
   kp = nacl.sign.keyPair.fromSecretKey(Buffer.from(fs.readFileSync(keyFile, 'utf8').trim(), 'base64url'));
@@ -89,7 +89,7 @@ if (llmUrl) {
     const r = await fetch(`${llmUrl}/models`);
     llmOk = r.ok;
     if (!llmOk) console.log(`llm backend at ${llmUrl} answered ${r.status}; serving compute only`);
-    if (llmOk && models.length === 0) console.log('DOCKET_LLM_URL is set but DOCKET_MODELS is empty; set the model names customers will ask for');
+    if (llmOk && models.length === 0) console.log('NIGHTSHIFT_LLM_URL is set but NIGHTSHIFT_MODELS is empty; set the model names customers will ask for');
   } catch (e) {
     console.log(`llm backend at ${llmUrl} unreachable (${e.message}); serving compute only`);
   }

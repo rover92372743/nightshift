@@ -1,4 +1,4 @@
-import type { Receipt } from '@docket/shared';
+import type { Receipt } from '@nightshift/shared';
 import { h, fmtUsd, fmtMs } from './dom';
 
 function short(s: string, n = 14): string {
@@ -12,7 +12,7 @@ export function receiptEl(r: Receipt, opts: { verified?: boolean; compact?: bool
   return h(
     'div',
     { class: `receipt ${opts.verified ? 'is-verified' : ''}` },
-    h('div', { class: 'head' }, h('b', null, 'Docket'), h('span', null, when.toLocaleDateString([], { month: 'short', day: 'numeric' }), ' ', when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))),
+    h('div', { class: 'head' }, h('b', null, 'Nightshift'), h('span', null, when.toLocaleDateString([], { month: 'short', day: 'numeric' }), ' ', when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))),
     line('receipt', short(r.id, 18)),
     line('job', short(b.jobId, 18)),
     h('hr', { class: 'dots' }),

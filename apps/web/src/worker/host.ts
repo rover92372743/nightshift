@@ -1,6 +1,6 @@
 // Page-side handle on the Web Worker. Promises in, messages out.
 
-import { computeTask, type ChatMessage, type JobOutput } from '@docket/shared';
+import { computeTask, type ChatMessage, type JobOutput } from '@nightshift/shared';
 import { isPreview } from '../lib/dom';
 
 export interface LoadProgress {

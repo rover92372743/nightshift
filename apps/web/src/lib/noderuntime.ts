@@ -6,7 +6,7 @@
 // and the person ticked the box. Both run in a Web Worker so the page never
 // stutters. The tab never shows task content.
 
-import { NodeClient, runWorker, COMPUTE_ROUNDS_PER_UNIT, type JobRecord, type Receipt, type Signer, type Workload, type HardwareTier } from '@docket/shared';
+import { NodeClient, runWorker, COMPUTE_ROUNDS_PER_UNIT, type JobRecord, type Receipt, type Signer, type Workload, type HardwareTier } from '@nightshift/shared';
 import { API_BASE } from './api';
 import { WorkerHost } from '../worker/host';
 

@@ -3,7 +3,7 @@
 One Node process, one SQLite file, one WebSocket. The web app is static files that talk to it.
 
 ```
-apps/web  ──HTTP /v1──▶  apps/api (Fastify)  ──▶  SQLite (data/docket.db)
+apps/web  ──HTTP /v1──▶  apps/api (Fastify)  ──▶  SQLite (data/nightshift.db)
           ◀──WS /v1/network/live──┘
                                   ▲
 nodes (browser tab, cli) ──signed HTTP──┘

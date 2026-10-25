@@ -4,7 +4,7 @@ import { config } from '../config.js';
 import { requester } from '../auth.js';
 import { InsufficientCredits } from '../core/ledger.js';
 import { JobError } from '../core/router.js';
-import type { ChatMessage, JobInput } from '@docket/shared';
+import type { ChatMessage, JobInput } from '@nightshift/shared';
 
 interface ChatBody {
   model?: string;
@@ -67,7 +67,7 @@ export function inferenceRoutes(ctx: Ctx): FastifyPluginAsync {
           completion_tokens: done.output?.outputTokens ?? 0,
           total_tokens: Math.ceil(promptChars(done.input) / 4) + (done.output?.outputTokens ?? 0),
         },
-        docket: {
+        nightshift: {
           job_id: done.id,
           node_id: done.nodeId,
           receipt_id: receipt?.id,

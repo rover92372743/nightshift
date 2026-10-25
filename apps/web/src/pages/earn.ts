@@ -1,19 +1,19 @@
 // Earn: how to run a node, and a terminal view of what your key has earned.
 //
 // Two kinds of node can show up here. A GPU machine runs the agent from a
-// terminal and keeps its key in ~/.docket; its owner can paste that key here
+// terminal and keeps its key in ~/.nightshift; its owner can paste that key here
 // to see its earnings, since the router only answers the key holder. A
 // browser can also run a lightweight CPU node from this page, which is
 // handy for trying the flow before installing anything.
 
-import { NodeClient, TIER_LABEL, PAYOUT_MIN_MICRO, type JobRecord, type Signer } from '@docket/shared';
+import { NodeClient, TIER_LABEL, PAYOUT_MIN_MICRO, type JobRecord, type Signer } from '@nightshift/shared';
 import { nodeRuntime, type NodeSettings } from '../lib/noderuntime';
 import { h, clear, fmtMs, mountReveals, timeHM, copyText, isPreview, fmtPerM } from '../lib/dom';
 import { API_BASE } from '../lib/api';
 import { loadOrCreateNodeKey, importNodeKey } from '../lib/keys';
 import type { Page } from '../main';
 
-const PREFS = 'docket.node.prefs';
+const PREFS = 'nightshift.node.prefs';
 
 type Prefs = NodeSettings;
 function loadPrefs(): Prefs {
@@ -66,7 +66,7 @@ export function earnPage(): Page {
     const n = me.node;
     const hw = n.capabilities.hardware;
     const rows: string[] = [
-      `docket · ${API_BASE || location.host}`,
+      `nightshift · ${API_BASE || location.host}`,
       '',
       line('node', `${n.label}  ${n.id}`),
       line('status', n.status),
@@ -113,12 +113,12 @@ export function earnPage(): Page {
   }
 
   // --- import a key from a GPU machine -----------------------------------------
-  const importField = h('input', { class: 'input mono', placeholder: 'paste the contents of ~/.docket/worker.key' }) as HTMLInputElement;
+  const importField = h('input', { class: 'input mono', placeholder: 'paste the contents of ~/.nightshift/worker.key' }) as HTMLInputElement;
   const importBtn = h('button', { class: 'btn sm secondary' }, 'View this key') as HTMLButtonElement;
   importBtn.addEventListener('click', async () => {
     const k = importNodeKey(importField.value.trim());
     if (!k) {
-      termNote.textContent = 'That is not a valid key. It is one line of base64 in ~/.docket/worker.key on the machine running the agent.';
+      termNote.textContent = 'That is not a valid key. It is one line of base64 in ~/.nightshift/worker.key on the machine running the agent.';
       return;
     }
     key = k;
@@ -209,7 +209,7 @@ export function earnPage(): Page {
     }
   });
 
-  const install = `git clone <repo> docket && cd docket && npm install\nDOCKET_URL=${API_BASE || location.origin} npm run worker`;
+  const install = `git clone <repo> nightshift && cd nightshift && npm install\nNIGHTSHIFT_URL=${API_BASE || location.origin} npm run worker`;
   const pub = h('code', { class: 'small', style: { wordBreak: 'break-all' } }, key.publicKey);
 
   const el = h(
@@ -241,14 +241,14 @@ export function earnPage(): Page {
           { class: 'card', style: { display: 'grid', gap: '12px' } },
           h('h3', null, 'Want it running all day on a bigger model?'),
           h('p', { class: 'small muted' }, 'Run the agent on the machine instead. It serves larger models through a local model server, keeps going with the lid closed, and earns to the same kind of key.'),
-          h('pre', null, h('code', null, isPreview() ? 'git clone <repo> docket && cd docket && npm install\nDOCKET_URL=https://your-router npm run worker' : install)),
+          h('pre', null, h('code', null, isPreview() ? 'git clone <repo> nightshift && cd nightshift && npm install\nNIGHTSHIFT_URL=https://your-router npm run worker' : install)),
           h('div', { class: 'row' }, h('a', { class: 'btn sm secondary', href: '/docs/earning' }, 'How earnings work'), h('a', { class: 'btn sm secondary', href: '/docs/run-a-node' }, 'Agent reference')),
         ),
       ),
       h(
         'div',
         { style: { display: 'grid', gap: '16px' } },
-        h('div', { class: 'card flush term-card' }, h('div', { class: 'term-bar' }, h('span'), h('span'), h('span'), h('b', null, 'docket earnings')), term, h('div', { style: { padding: '0 16px 16px' } }, termNote)),
+        h('div', { class: 'card flush term-card' }, h('div', { class: 'term-bar' }, h('span'), h('span'), h('span'), h('b', null, 'nightshift earnings')), term, h('div', { style: { padding: '0 16px 16px' } }, termNote)),
         h(
           'div',
           { class: 'card', style: { display: 'grid', gap: '12px' } },

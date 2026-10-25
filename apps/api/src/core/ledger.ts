@@ -1,7 +1,7 @@
 import type { Db } from '../db/index.js';
 import { id, nowMs } from '../db/index.js';
-import type { LedgerEntry } from '@docket/shared';
-import { FREE_GRANT_MICRO } from '@docket/shared';
+import type { LedgerEntry } from '@nightshift/shared';
+import { FREE_GRANT_MICRO } from '@nightshift/shared';
 import { createHash, randomBytes } from 'node:crypto';
 
 export class InsufficientCredits extends Error {
@@ -67,7 +67,7 @@ export class Ledger {
 
   createApiKey(label: string): { accountId: string; apiKey: string } {
     const accountId = id('acct');
-    const apiKey = 'dk_' + randomBytes(24).toString('base64url');
+    const apiKey = 'ns_' + randomBytes(24).toString('base64url');
     this.db
       .prepare('INSERT INTO accounts (id, kind, label, api_key_hash, created_at) VALUES (?,?,?,?,?)')
       .run(accountId, 'key', label, hashKey(apiKey), nowMs());

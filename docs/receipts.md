@@ -58,7 +58,7 @@ With Node and tweetnacl:
 
 ```js
 import nacl from 'tweetnacl';
-import { canonical } from '@docket/shared';
+import { canonical } from '@nightshift/shared';
 
 const b64u = (s) => Buffer.from(s, 'base64url');
 const msg = (s) => new TextEncoder().encode(s);

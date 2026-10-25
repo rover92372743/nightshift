@@ -1,4 +1,4 @@
-import type { Receipt } from '@docket/shared';
+import type { Receipt } from '@nightshift/shared';
 import { h, clear, mountReveals, copyText, isPreview } from '../lib/dom';
 import { api } from '../lib/api';
 import { verifyReceiptLocally } from '../lib/keys';

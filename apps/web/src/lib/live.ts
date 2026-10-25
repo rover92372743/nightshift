@@ -2,7 +2,7 @@
 // socket reconnects on its own with backoff and replays the last snapshot
 // to new subscribers so a page that mounts late doesn't start empty.
 
-import type { LiveEvent, NetworkStats, PublicNode } from '@docket/shared';
+import type { LiveEvent, NetworkStats, PublicNode } from '@nightshift/shared';
 import { wsUrl } from './api';
 
 type Sub = (ev: LiveEvent) => void;

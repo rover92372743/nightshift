@@ -10,7 +10,7 @@ function hex(buf: ArrayBuffer): string {
 }
 
 export async function computeTask(seed: number, rounds: number): Promise<string> {
-  let state = enc.encode(`docket:${seed}`);
+  let state = enc.encode(`nightshift:${seed}`);
   for (let i = 0; i < rounds; i++) {
     const digest = await crypto.subtle.digest('SHA-256', state);
     // Mix the round counter in so a node can't memoise across rounds.

@@ -13,7 +13,7 @@ import { Live } from './core/live.js';
 import { Nodes } from './core/nodes.js';
 import { Router } from './core/router.js';
 import { Payouts } from './core/payouts.js';
-import { HEARTBEAT_MS } from '@docket/shared';
+import { HEARTBEAT_MS } from '@nightshift/shared';
 
 import { inferenceRoutes } from './routes/inference.js';
 import { nodeRoutes } from './routes/nodes.js';

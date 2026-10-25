@@ -2,9 +2,9 @@
 // the router only ever sees the public half and signatures.
 
 import nacl from 'tweetnacl';
-import { canonical, type Receipt, type Signer } from '@docket/shared';
+import { canonical, type Receipt, type Signer } from '@nightshift/shared';
 
-const KEY = 'docket.node.secret';
+const KEY = 'nightshift.node.secret';
 
 function b64u(bytes: Uint8Array): string {
   let s = '';

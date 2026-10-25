@@ -25,7 +25,7 @@ Concretely: a 16 GB card that is busy for a full hour on card-hour work earns $0
 
 Why those numbers: hosted APIs serve small open models for a few tenths of a dollar per million tokens, so per-token rates here have to sit near that or nobody buys. Card-hours are where a consumer GPU beats a datacenter: a cloud 24 GB card runs around $1 an hour on demand, so there is room to charge $0.32, pay you $0.26, and still be the cheap option. Check current cloud prices; the gap moves.
 
-**Your class and rate** are set by the agent from your GPU's memory on startup. You can set your own hourly rate (`DOCKET_HOURLY`) or per-1k rate (`DOCKET_PRICE`) above the floor. The router sends each job to the cheapest capable node, so a higher rate means fewer jobs. A browser tab with a GPU is classed as 'up to 8 GB' because browsers only run small models and cannot report memory.
+**Your class and rate** are set by the agent from your GPU's memory on startup. You can set your own hourly rate (`NIGHTSHIFT_HOURLY`) or per-1k rate (`NIGHTSHIFT_PRICE`) above the floor. The router sends each job to the cheapest capable node, so a higher rate means fewer jobs. A browser tab with a GPU is classed as 'up to 8 GB' because browsers only run small models and cannot report memory.
 
 ## What you are not paid for
 
@@ -43,7 +43,7 @@ npm run cli watch      # the same, refreshing
 npm run cli payout 50 usdc <solana address>
 ```
 
-Or open the Earn page and paste the contents of `~/.docket/worker.key` to see the same view in a browser. The key is kept only in that browser.
+Or open the Earn page and paste the contents of `~/.nightshift/worker.key` to see the same view in a browser. The key is kept only in that browser.
 
 Both views show the task's kind, status, duration and what it paid. Neither shows task content. The agent processes customer text and does not print it, log it or keep it.
 
@@ -61,4 +61,4 @@ Credits are a unit of account inside the router, one credit is one US dollar for
 
 ## Your key is your account
 
-The agent writes an ed25519 key to `~/.docket/worker.key` the first time it runs. Everything you earn is tied to it. Back it up. If you lose it, you lose the balance; there is no account to recover it from, because there is no account. If someone else gets it, they can request your payouts, so treat it like a wallet key.
+The agent writes an ed25519 key to `~/.nightshift/worker.key` the first time it runs. Everything you earn is tied to it. Back it up. If you lose it, you lose the balance; there is no account to recover it from, because there is no account. If someone else gets it, they can request your payouts, so treat it like a wallet key.

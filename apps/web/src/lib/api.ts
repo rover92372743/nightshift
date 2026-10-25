@@ -1,4 +1,4 @@
-import type { JobRecord, LedgerEntry, NetworkStats, PublicNode, Receipt } from '@docket/shared';
+import type { JobRecord, LedgerEntry, NetworkStats, PublicNode, Receipt } from '@nightshift/shared';
 
 export const API_BASE: string = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 
@@ -57,7 +57,7 @@ export interface ChatResponse {
   model: string;
   choices: { message: { role: string; content: string }; finish_reason: string }[];
   usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
-  docket: { job_id: string; node_id?: string; receipt_id?: string; cost_micro?: number; duration_ms: number };
+  nightshift: { job_id: string; node_id?: string; receipt_id?: string; cost_micro?: number; duration_ms: number };
 }
 
 export function wsUrl(): string {

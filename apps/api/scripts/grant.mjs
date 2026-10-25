@@ -24,7 +24,7 @@ if (!Number.isFinite(micro) || micro <= 0) {
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = process.env.DOCKET_DB ?? path.resolve(here, '../../../data/docket.db');
+const dbPath = process.env.NIGHTSHIFT_DB ?? path.resolve(here, '../../../data/nightshift.db');
 const db = new Database(dbPath);
 
 const acct = db.prepare('SELECT id, kind, label FROM accounts WHERE id = ?').get(accountId);

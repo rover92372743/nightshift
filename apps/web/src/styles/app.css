@@ -1,37 +1,37 @@
-/* Docket — one stylesheet, ordered by specificity: tokens, base, components, pages. */
+/* Nightshift — one stylesheet, ordered by specificity: tokens, base, components, pages. */
 
 :root {
-  /* Night is the default: a server room, not a sheet of paper. Graphite panels,
-     LED cyan for anything working, phosphor green for anything finished, amber
-     for warnings. The light theme is the same board under lab lighting. */
-  --paper: #0b0e12;
-  --paper-2: #12161c;
-  --receipt: #141920;
+  /* Night. The default. Near-black with a cold blue cast, like a room lit
+     only by the machines in it. Moonlight for the accent, phosphor green for
+     anything finished, amber for warnings. */
+  --paper: #04060a;
+  --paper-2: #0a0d13;
+  --receipt: #0c1016;
   --paper-white: #f2f4f1;
   --ink-on-paper: #11161b;
-  --ink: #e6ebef;
-  --ink-2: #9aa7b4;
-  --ink-3: #5f6b78;
-  --rule: #232a33;
-  --stamp: #38d0ff;
-  --stamp-soft: #0b2b38;
+  --ink: #dfe6ee;
+  --ink-2: #8d9aaa;
+  --ink-3: #525d6b;
+  --rule: #1a2029;
+  --stamp: #8fa3ff;
+  --stamp-soft: #141c3a;
   --ok: #3df28a;
   --warn: #ffb020;
   --bad: #ff5c5c;
-  --ok-bg: #0d2a1b;
-  --warn-bg: #2e2308;
-  --bad-bg: #331313;
+  --ok-bg: #0a2217;
+  --warn-bg: #2a2008;
+  --bad-bg: #2e1111;
   --ok-ink: #9df5c3;
   --bad-ink: #ffb3b3;
-  --cell-on: #2b3542;
-  --code-bg: #07090c;
-  --code-fg: #cfd8e1;
-  --btn-bg: #e6ebef;
-  --btn-fg: #0b0e12;
+  --cell-on: #232c3a;
+  --code-bg: #020305;
+  --code-fg: #c9d2dc;
+  --btn-bg: #dfe6ee;
+  --btn-fg: #04060a;
   --btn-hover: #ffffff;
-  --shadow: rgba(0, 0, 0, 0.6);
-  --grid: rgba(56, 208, 255, 0.045);
-  --glow: rgba(56, 208, 255, 0.35);
+  --shadow: rgba(0, 0, 0, 0.75);
+  --grid: rgba(143, 163, 255, 0.04);
+  --glow: rgba(143, 163, 255, 0.4);
   color-scheme: dark;
 
   --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -53,19 +53,19 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) {
     --paper: #e9edf0; --paper-2: #dde3e8; --receipt: #f6f8fa; --ink: #11161b; --ink-2: #4b5967; --ink-3: #7e8c9a; --rule: #c4cdd6;
-    --stamp: #007fa3; --stamp-soft: #d3ecf5; --ok: #0f8a4a; --warn: #a56a00; --bad: #c62828;
+    --stamp: #3d4fcc; --stamp-soft: #dfe3fb; --ok: #0f8a4a; --warn: #a56a00; --bad: #c62828;
     --ok-bg: #d9f3e4; --warn-bg: #fbeccf; --bad-bg: #f8dcdc; --ok-ink: #0b5c31; --bad-ink: #7a1a1a; --cell-on: #aeb9c6;
     --code-bg: #11161b; --code-fg: #e6ebef; --btn-bg: #11161b; --btn-fg: #f6f8fa; --btn-hover: #2a333d; --shadow: rgba(17, 22, 27, 0.3);
-    --grid: rgba(17, 22, 27, 0.06); --glow: rgba(0, 127, 163, 0.3);
+    --grid: rgba(17, 22, 27, 0.06); --glow: rgba(61, 79, 204, 0.3);
     color-scheme: light;
   }
 }
 :root[data-theme='light'] {
   --paper: #e9edf0; --paper-2: #dde3e8; --receipt: #f6f8fa; --ink: #11161b; --ink-2: #4b5967; --ink-3: #7e8c9a; --rule: #c4cdd6;
-  --stamp: #007fa3; --stamp-soft: #d3ecf5; --ok: #0f8a4a; --warn: #a56a00; --bad: #c62828;
+  --stamp: #3d4fcc; --stamp-soft: #dfe3fb; --ok: #0f8a4a; --warn: #a56a00; --bad: #c62828;
   --ok-bg: #d9f3e4; --warn-bg: #fbeccf; --bad-bg: #f8dcdc; --ok-ink: #0b5c31; --bad-ink: #7a1a1a; --cell-on: #aeb9c6;
   --code-bg: #11161b; --code-fg: #e6ebef; --btn-bg: #11161b; --btn-fg: #f6f8fa; --btn-hover: #2a333d; --shadow: rgba(17, 22, 27, 0.3);
-  --grid: rgba(17, 22, 27, 0.06); --glow: rgba(0, 127, 163, 0.3);
+  --grid: rgba(17, 22, 27, 0.06); --glow: rgba(61, 79, 204, 0.3);
   color-scheme: light;
 }
 
@@ -78,6 +78,7 @@ body {
   background: var(--paper);
   background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 28px 28px;
+  background-attachment: fixed;
   color: var(--ink);
   font: 400 17px/1.5 var(--sans);
   font-feature-settings: 'ss01', 'cv11';
@@ -153,8 +154,8 @@ img, svg, canvas { display: block; max-width: 100%; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 .btn.secondary { background: transparent; color: var(--ink); border-color: var(--rule); }
 .btn.secondary:hover { border-color: var(--ink); background: transparent; }
-.btn.stamp { background: var(--stamp); border-color: var(--stamp); color: #04141a; box-shadow: 0 0 0 0 var(--glow); }
-.btn.stamp:hover { background: var(--stamp); border-color: var(--stamp); color: #04141a; box-shadow: 0 0 18px var(--glow); }
+.btn.stamp { background: var(--stamp); border-color: var(--stamp); color: #06081a; box-shadow: 0 0 0 0 var(--glow); }
+.btn.stamp:hover { background: var(--stamp); border-color: var(--stamp); color: #06081a; box-shadow: 0 0 18px var(--glow); }
 .btn.sm { height: 34px; padding: 0 12px; font-size: 0.9rem; border-radius: var(--radius-sm); }
 .btn.icon { width: 42px; padding: 0; }
 

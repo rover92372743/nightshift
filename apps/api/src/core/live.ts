@@ -1,6 +1,6 @@
 // Tiny in-process event bus. Everything the UI animates comes through here.
 
-import type { LiveEvent } from '@docket/shared';
+import type { LiveEvent } from '@nightshift/shared';
 
 type Listener = (ev: LiveEvent) => void;
 

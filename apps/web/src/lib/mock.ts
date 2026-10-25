@@ -6,8 +6,8 @@
 // Installed by preview.ts; never bundled into the real app.
 
 import nacl from 'tweetnacl';
-import type { JobInput, JobOutput, JobRecord, LiveEvent, NetworkStats, NodeCapabilities, NodeClass, PublicNode, Receipt, ReceiptBody } from '@docket/shared';
-import { canonical, computeTask, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, type HardwareTier } from '@docket/shared';
+import type { JobInput, JobOutput, JobRecord, LiveEvent, NetworkStats, NodeCapabilities, NodeClass, PublicNode, Receipt, ReceiptBody } from '@nightshift/shared';
+import { canonical, computeTask, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, type HardwareTier } from '@nightshift/shared';
 
 const enc = new TextEncoder();
 function b64u(bytes: Uint8Array): string {
@@ -381,7 +381,7 @@ export class MockRouter {
     if (path === '/v1/nodes' && method === 'GET') return { status: 200, body: { nodes: this.online().map((n) => this.pub(n)) } };
     if (path === '/v1/me') return { status: 200, body: { accountId: 'sess_preview', balanceMicro: this.balance, ledger: this.ledger.slice(0, 30) } };
     if (path === '/v1/quotes') return { status: 200, body: { ok: true } };
-    if (path === '/v1/keys') return { status: 200, body: { accountId: id('acct'), apiKey: 'dk_preview_' + id('k'), note: 'preview key; the real router stores a hash' } };
+    if (path === '/v1/keys') return { status: 200, body: { accountId: id('acct'), apiKey: 'ns_preview_' + id('k'), note: 'preview key; the real router stores a hash' } };
     if (path === '/v1/receipts' && method === 'GET') return { status: 200, body: { receipts: Array.from(this.receipts.values()).reverse().slice(0, 10) } };
     if (path === '/v1/receipts/verify') return b.receipt?.body ? { status: 200, body: this.checkReceipt(b.receipt) } : { status: 400, body: err('receipt required') };
     if ((x = m(/^\/v1\/receipts\/([^/]+)$/))) {
@@ -399,7 +399,7 @@ export class MockRouter {
       const done = await this.waitFor(job.id, 60_000);
       if (!done || done.status !== 'done') return { status: done?.status === 'failed' ? 502 : 504, body: { error: { message: done?.error ?? 'no node picked the job up in time; it is still queued', type: 'routing_error', job_id: job.id } } };
       const r = this.receiptFor(done.id);
-      return { status: 200, body: { id: 'chatcmpl-' + done.id, object: 'chat.completion', created: Math.floor(done.createdAt / 1000), model: done.input.model, choices: [{ index: 0, message: { role: 'assistant', content: done.output?.text ?? '' }, finish_reason: 'stop' }], usage: { prompt_tokens: 12, completion_tokens: done.output?.outputTokens ?? 0, total_tokens: 12 + (done.output?.outputTokens ?? 0) }, docket: { job_id: done.id, node_id: done.nodeId, receipt_id: r?.id, cost_micro: done.costMicro, duration_ms: (done.finishedAt ?? 0) - (done.startedAt ?? done.createdAt) } } };
+      return { status: 200, body: { id: 'chatcmpl-' + done.id, object: 'chat.completion', created: Math.floor(done.createdAt / 1000), model: done.input.model, choices: [{ index: 0, message: { role: 'assistant', content: done.output?.text ?? '' }, finish_reason: 'stop' }], usage: { prompt_tokens: 12, completion_tokens: done.output?.outputTokens ?? 0, total_tokens: 12 + (done.output?.outputTokens ?? 0) }, nightshift: { job_id: done.id, node_id: done.nodeId, receipt_id: r?.id, cost_micro: done.costMicro, duration_ms: (done.finishedAt ?? 0) - (done.startedAt ?? done.createdAt) } } };
     }
 
     // nodes (the Earn page's own node talks to these)

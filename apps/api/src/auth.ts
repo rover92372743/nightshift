@@ -1,6 +1,6 @@
 // Two kinds of caller.
 //
-// Requesters are either an API key (Authorization: Bearer dk_...) or an
+// Requesters are either an API key (Authorization: Bearer ns_...) or an
 // anonymous browser session identified by a cookie we set on first contact.
 // Sessions get a small free allowance; keys start empty and are topped up by
 // the operator (see scripts/grant.mjs).
@@ -14,7 +14,7 @@ import { sha256Hex, verify } from './core/crypto.js';
 import type { Ledger } from './core/ledger.js';
 import type { Nodes } from './core/nodes.js';
 
-const COOKIE = 'docket_sid';
+const COOKIE = 'nightshift_sid';
 const SKEW_MS = 60_000;
 
 export function readCookie(req: FastifyRequest, name: string): string | undefined {
