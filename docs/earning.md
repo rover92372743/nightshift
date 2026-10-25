@@ -1,6 +1,6 @@
 # Earning with your hardware
 
-Two ways to run a node. Both earn to a key, both sign a receipt per task, both cash out in SOL or USDC on Solana. There is a minimum payout.
+Two ways to run a node. Both earn to a key, both sign a receipt per task, both cash out in SOL or USDC on Solana.
 
 **In a browser tab, nothing to install.** Open the Earn page and press start. In Chrome or Edge on a machine with a graphics card, the tab serves model tasks through WebGPU; elsewhere it serves compute tasks. The model is fetched once and cached by the browser. The node runs as long as the tab is open, keeps going while you browse the rest of the site, and can keep working in the background if you let it. Close the tab and it stops.
 

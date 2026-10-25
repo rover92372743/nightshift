@@ -215,7 +215,7 @@ export function earnPage(): Page {
   const el = h(
     'div',
     { class: 'container section' },
-    h('div', { class: 'section-head reveal' }, h('h1', null, 'Earn with your hardware'), h('p', null, 'Press start and this tab becomes a node, no install. It takes tasks from businesses using the network, you are paid per task by hardware class, and you cash out in SOL or USDC. There is a small minimum payout.')),
+    h('div', { class: 'section-head reveal' }, h('h1', null, 'Earn with your hardware'), h('p', null, 'Press start and this tab becomes a node, no install. It takes tasks from businesses using the network, you are paid per task by hardware class, and you cash out in SOL or USDC.')),
     h(
       'div',
       { class: 'worker reveal', 'data-delay': '1' },

@@ -146,7 +146,7 @@ export function homePage(): Page {
             'div',
             { class: 'card reveal', 'data-delay': '1' },
             h('h3', null, 'For node operators'),
-            h('p', { class: 'muted' }, 'Run the agent on a machine with a GPU. It takes tasks while it is online, signs a receipt for each, and your earnings post to a balance you cash out in SOL or USDC. A small minimum payout applies.'),
+            h('p', { class: 'muted' }, 'Run the agent on a machine with a GPU. It takes tasks while it is online, signs a receipt for each, and your earnings post to a balance you cash out in SOL or USDC.'),
             h('ul', null, h('li', null, 'Paid per task, at a rate set by your hardware class'), h('li', null, 'You never see task content; the agent processes it and forgets it'), h('li', null, 'Your key is your account; it never leaves your machine')),
             h('div', { class: 'row' }, h('a', { class: 'btn stamp', href: '/earn' }, 'Start earning'), h('a', { class: 'btn secondary', href: '/docs/earning' }, 'How earnings work')),
           ),
