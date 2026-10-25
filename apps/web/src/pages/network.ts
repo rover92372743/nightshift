@@ -3,7 +3,7 @@ import { TIER_LABEL } from '@nightshift/shared';
 import { h, clear, tweenNumber, fmtMs, fmtUsd, fmtPerM, fmtHourly, timeHM, mountReveals } from '../lib/dom';
 import { live } from '../lib/live';
 import { api } from '../lib/api';
-import { Field, DARK } from '../lib/field';
+import { Globe } from '../lib/globe';
 import type { Page } from '../main';
 
 const CLASSES: { id: NodeClass; label: string; blurb: string }[] = [
@@ -43,13 +43,35 @@ export function networkPage(): Page {
     );
   }
 
-  // --- the big live map -------------------------------------------------
-  const canvas = h('canvas', { class: 'console-field', 'aria-label': 'Live map of nodes around the router' });
-  const readout = h('div', { class: 'console-readout' }, h('span', null, 'Hover a node. Click one to pin it.'));
+  // --- the globe ----------------------------------------------------------
+  const canvas = h('canvas', { class: 'console-field', 'aria-label': 'Globe of regions with nodes online; click a region to see its nodes' });
+  const IDLE = 'Hover a region. Click one to fly in.';
+  const readout = h('div', { class: 'console-readout' }, h('span', null, IDLE));
   const pinned = h('div', { class: 'console-pinned', hidden: true });
-  const field = new Field(canvas, DARK, { ghosts: 0, labels: true, interactive: true, routerLabel: 'router' });
-  field.onHover = (n) => {
-    readout.firstElementChild!.textContent = n ? `${n.label} · ${n.cls} · ${n.jobs} done · ${fmtPerM(n.price)} tokens` : 'Hover a node. Click one to pin it.';
+  const field = new Globe(canvas);
+  field.onHover = (text) => {
+    readout.firstElementChild!.textContent = text ?? (field.focus ? 'Hover a node. Click one to pin it. Esc to zoom out.' : IDLE);
+  };
+  field.onFocus = (region) => {
+    readout.firstElementChild!.textContent = region ? 'Hover a node. Click one to pin it. Esc to zoom out.' : IDLE;
+    if (!region) {
+      pinned.hidden = true;
+      return;
+    }
+    const busy = region.nodes.filter((n) => n.status === 'busy').length;
+    const tiers = new Map<string, number>();
+    for (const n of region.nodes) {
+      const k = n.capabilities.hardware?.gpu ?? TIER_LABEL[n.capabilities.hardware?.tier ?? 'cpu'];
+      tiers.set(k, (tiers.get(k) ?? 0) + 1);
+    }
+    pinned.hidden = false;
+    pinned.replaceChildren(
+      h('b', null, region.name),
+      h('span', { class: 'tag' }, `${region.nodes.length} node${region.nodes.length === 1 ? '' : 's'} · ${busy} working`),
+      h('div', { class: 'kv' }, ...Array.from(tiers.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8).flatMap(([k, v]) => [h('span', null, k), h('span', null, `×${v}`)])),
+      h('p', { class: 'small muted' }, 'Regions are a metro area a node chose to share. Nothing finer is ever stored.'),
+      h('button', { class: 'btn sm secondary', onClick: () => field.unfocus() }, 'All regions'),
+    );
   };
   field.onClick = (id) => {
     const n = live.nodes.get(id);
@@ -57,7 +79,7 @@ export function networkPage(): Page {
     pinned.hidden = false;
     pinned.replaceChildren(
       h('b', null, n.label),
-      h('span', { class: 'tag' }, n.class),
+      h('span', { class: 'tag' }, n.capabilities.hardware?.gpu ?? n.class),
       h('div', { class: 'kv' },
         h('span', null, 'status'), h('span', null, n.status),
         h('span', null, 'price'), h('span', null, `${fmtHourly(n.capabilities.pricePerHour)} · ${fmtPerM(n.capabilities.pricePer1k)} tokens`),
@@ -215,7 +237,7 @@ export function networkPage(): Page {
   const el = h(
     'div',
     { class: 'container section' },
-    h('div', { class: 'section-head reveal' }, h('h1', null, 'The network, right now'), h('p', null, 'Every dot is a real node talking to this router. Blue packets are jobs going out, green ones are receipts coming back. Hover, click, watch.')),
+    h('div', { class: 'section-head reveal' }, h('h1', null, 'The network, right now'), h('p', null, 'Every lit point is a metro area with nodes reporting to this router. Blue packets are jobs going out, green ones are signed receipts coming back. Drag to spin, click a region to fly in.')),
     h('div', { class: 'reveal', 'data-delay': '1' }, strip),
     h('div', { class: 'reveal', 'data-delay': '2', style: { marginTop: '24px' } }, consoleEl),
     h('div', { class: 'card reveal', 'data-delay': '2', style: { marginTop: '24px' } }, h('h3', { style: { marginBottom: '4px' } }, 'Hardware online'), h('p', { class: 'small muted', style: { marginBottom: '12px' } }, 'Nodes by class, as they reported themselves on registration. Hover a tile for the GPU names.'), hw),

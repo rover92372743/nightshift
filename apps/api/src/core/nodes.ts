@@ -1,7 +1,7 @@
 import type { Db } from '../db/index.js';
 import { id, nowMs } from '../db/index.js';
 import type { NodeCapabilities, NodeClass, NodeRecord, PublicNode, Workload } from '@nightshift/shared';
-import { OFFLINE_AFTER_MS, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram } from '@nightshift/shared';
+import { OFFLINE_AFTER_MS, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, isRegion } from '@nightshift/shared';
 import type { Live } from './live.js';
 import type { Ledger } from './ledger.js';
 
@@ -158,6 +158,7 @@ function sanitiseCaps(c: Partial<NodeCapabilities>): NodeCapabilities {
     hardware: c.hardware
       ? { gpu: c.hardware.gpu ? String(c.hardware.gpu).slice(0, 64) : undefined, vramGb: c.hardware.vramGb ? clamp(c.hardware.vramGb, 0, 1024) : undefined, tier: c.hardware.tier }
       : undefined,
+    region: isRegion(c.region) ? c.region : undefined,
   };
 }
 

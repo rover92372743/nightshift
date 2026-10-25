@@ -39,6 +39,8 @@ What each party can see, what the router keeps, and what you can't fix from insi
 
 No prompt text, no reply text, no addresses, no balances, no account ids appear on any of them.
 
+**Region.** A node can choose to say which metro area it is in (`region`, one of a fixed list of about forty cities). That is what places it on the globe on the Network page. It is opt-in, it is the only location field that exists, and the router throws away anything that is not on the list, so there is no way to send a street, a postcode or coordinates even by accident. The router never derives a region from your IP address. Leave it unset and your node is counted in the totals but pinned nowhere.
+
 ## What the receipt reveals
 
 A receipt names the node that ran the job (by id and public key) and the job id. Anyone holding a receipt can therefore tell which node produced a given output. That's the point of the receipt; a receipt that didn't name the node would prove nothing. If you need to show someone a receipt without exposing which node did the work, you can't. The design trades that for verifiability.

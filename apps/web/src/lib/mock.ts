@@ -7,7 +7,7 @@
 
 import nacl from 'tweetnacl';
 import type { JobInput, JobOutput, JobRecord, LiveEvent, NetworkStats, NodeCapabilities, NodeClass, PublicNode, Receipt, ReceiptBody } from '@nightshift/shared';
-import { canonical, computeTask, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, type HardwareTier } from '@nightshift/shared';
+import { canonical, computeTask, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, type HardwareTier, type RegionKey } from '@nightshift/shared';
 
 const enc = new TextEncoder();
 function b64u(bytes: Uint8Array): string {
@@ -87,6 +87,8 @@ export class MockRouter {
       ['NVIDIA RTX A6000', 48], ['NVIDIA A100 80GB', 80], ['NVIDIA L4', 24], ['NVIDIA Tesla T4', 16],
     ];
     const NAMES = ['quiet-lamp', 'brisk-kettle', 'plain-harbour', 'early-ledger', 'spare-pebble', 'steady-maple', 'small-anvil', 'blue-cedar', 'grey-copper', 'calm-quill', 'late-birch', 'dry-slate', 'warm-ferry', 'low-orchard', 'still-gravel', 'far-lantern', 'soft-granite', 'pale-rudder', 'thin-walnut', 'old-pier', 'high-thistle', 'near-cobble', 'mild-saddle', 'clear-fathom', 'deep-marrow', 'odd-shingle', 'keen-tallow', 'fine-barrow'];
+    // Where the simulated fleet sits. Weighted toward where consumer GPUs actually are.
+    const WHERE: RegionKey[] = ['toronto', 'new-york', 'virginia', 'dallas', 'los-angeles', 'seattle', 'chicago', 'montreal', 'sao-paulo', 'london', 'amsterdam', 'frankfurt', 'paris', 'warsaw', 'stockholm', 'istanbul', 'mumbai', 'singapore', 'tokyo', 'seoul', 'sydney', 'johannesburg', 'toronto', 'london', 'frankfurt', 'dallas', 'tokyo', 'new-york'];
     for (let i = 0; i < 28; i++) {
       const [gpu, vram] = GPUS[(i * 7) % GPUS.length];
       const tier = tierForVram(vram);
@@ -101,11 +103,12 @@ export class MockRouter {
         pricePerHour: HOURLY_SUGGESTED[tier] + ((i * 13) % 20) * 1000,
         tokensPerSec: native ? 20 + vram : 6,
         hardware: { gpu, vramGb: vram, tier }, // browser tabs use the GPU through WebGPU too
+        region: WHERE[(i * 11) % WHERE.length],
       });
     }
     // Two tabs with no model so compute test jobs have cheap takers.
-    this.simNode('browser', 'chrome on windows', { workloads: ['compute'], models: [], maxPromptChars: 6000, maxOutputTokens: 128, pricePer1k: 210, pricePerHour: 20_000, tokensPerSec: 9, hardware: { tier: 'cpu' } });
-    this.simNode('browser', 'firefox on mac', { workloads: ['llm', 'compute'], models: ['qwen2.5-0.5b-instruct'], maxPromptChars: 6000, maxOutputTokens: 192, pricePer1k: 230, pricePerHour: 90_000, tokensPerSec: 18, hardware: { gpu: 'Apple M1', tier: 'gpu-8' } });
+    this.simNode('browser', 'chrome on windows', { workloads: ['compute'], models: [], maxPromptChars: 6000, maxOutputTokens: 128, pricePer1k: 210, pricePerHour: 20_000, tokensPerSec: 9, hardware: { tier: 'cpu' }, region: 'toronto' });
+    this.simNode('browser', 'firefox on mac', { workloads: ['llm', 'compute'], models: ['qwen2.5-0.5b-instruct'], maxPromptChars: 6000, maxOutputTokens: 192, pricePer1k: 230, pricePerHour: 90_000, tokensPerSec: 18, hardware: { gpu: 'Apple M1', tier: 'gpu-8' }, region: 'vancouver' });
     setInterval(() => this.emit({ t: 'stats', stats: this.stats() }), 4000);
     // Simulated customer traffic: a job every couple of seconds, billed to a
     // demo account rather than the viewer. Keeps the map moving.
@@ -124,7 +127,7 @@ export class MockRouter {
     // Occasionally a simulated node comes and goes so the map has some life.
     setInterval(() => {
       if (Math.random() < 0.4) {
-        const n = this.simNode('browser', ['safari on mac', 'edge on linux', 'brave on windows'][Math.floor(Math.random() * 3)] + '-' + Math.floor(100 + Math.random() * 900), { workloads: ['compute'], models: [], maxPromptChars: 4000, maxOutputTokens: 128, pricePer1k: 200 + Math.floor(Math.random() * 90), pricePerHour: 20_000, hardware: { tier: 'cpu' } });
+        const n = this.simNode('browser', ['safari on mac', 'edge on linux', 'brave on windows'][Math.floor(Math.random() * 3)] + '-' + Math.floor(100 + Math.random() * 900), { workloads: ['compute'], models: [], maxPromptChars: 4000, maxOutputTokens: 128, pricePer1k: 200 + Math.floor(Math.random() * 90), pricePerHour: 20_000, hardware: { tier: 'cpu' }, region: (['dublin', 'miami', 'denver', 'taipei', 'melbourne', 'helsinki'] as RegionKey[])[Math.floor(Math.random() * 6)] });
         setTimeout(() => {
           if (n.status !== 'busy') {
             n.status = 'offline';

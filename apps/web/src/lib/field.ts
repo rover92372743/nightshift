@@ -57,8 +57,8 @@ export const DARK: FieldPalette = {
 };
 
 /** Hardware tiers read as a temperature scale: cool CPUs, hot datacentre cards. */
-const TIER_ORDER: HardwareTier[] = ['cpu', 'gpu-8', 'gpu-16', 'gpu-24', 'gpu-48', 'gpu-80'];
-const TIER_COLOR: Record<HardwareTier, string> = {
+export const TIER_ORDER: HardwareTier[] = ['cpu', 'gpu-8', 'gpu-16', 'gpu-24', 'gpu-48', 'gpu-80'];
+export const TIER_COLOR: Record<HardwareTier, string> = {
   cpu: '#8a97a8',
   'gpu-8': '#39d4c6',
   'gpu-16': '#4f8dff',
@@ -66,7 +66,7 @@ const TIER_COLOR: Record<HardwareTier, string> = {
   'gpu-48': '#e86bff',
   'gpu-80': '#ffb648',
 };
-const TIER_SIZE: Record<HardwareTier, number> = { cpu: 5, 'gpu-8': 6, 'gpu-16': 7, 'gpu-24': 8, 'gpu-48': 9, 'gpu-80': 10.5 };
+export const TIER_SIZE: Record<HardwareTier, number> = { cpu: 5, 'gpu-8': 6, 'gpu-16': 7, 'gpu-24': 8, 'gpu-48': 9, 'gpu-80': 10.5 };
 
 interface FNode {
   id: string;
@@ -126,7 +126,7 @@ function hash(s: string): number {
 }
 
 /** Small deterministic generator so the sky is the same on every visit. */
-function prng(seed: number): () => number {
+export function prng(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -907,14 +907,14 @@ export class Field {
   }
 }
 
-function mix(a: string, b: string, k: number): string {
+export function mix(a: string, b: string, k: number): string {
   const pa = parse(a);
   const pb = parse(b);
   if (!pa || !pb) return a;
   const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * k));
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
-function rgba(c: string, a: number): string {
+export function rgba(c: string, a: number): string {
   const p = parse(c);
   if (!p) return c;
   return `rgba(${p[0]},${p[1]},${p[2]},${a.toFixed(3)})`;

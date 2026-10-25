@@ -36,6 +36,64 @@ export interface NodeCapabilities {
     vramGb?: number;
     tier?: HardwareTier;
   };
+  /**
+   * Coarse location, opt-in: one of the REGIONS keys (a metro area, nothing
+   * finer). It only places the node on the public globe. Never an IP, city
+   * block or address; the router rejects anything not in the list.
+   */
+  region?: RegionKey;
+}
+
+/** Metro hubs a node may claim as its region. Coarse on purpose. */
+export const REGIONS = {
+  'toronto': { name: 'Toronto', lat: 43.7, lon: -79.4 },
+  'montreal': { name: 'Montréal', lat: 45.5, lon: -73.6 },
+  'vancouver': { name: 'Vancouver', lat: 49.3, lon: -123.1 },
+  'new-york': { name: 'New York', lat: 40.7, lon: -74.0 },
+  'virginia': { name: 'N. Virginia', lat: 39.0, lon: -77.5 },
+  'chicago': { name: 'Chicago', lat: 41.9, lon: -87.6 },
+  'dallas': { name: 'Dallas', lat: 32.8, lon: -96.8 },
+  'denver': { name: 'Denver', lat: 39.7, lon: -105.0 },
+  'los-angeles': { name: 'Los Angeles', lat: 34.1, lon: -118.2 },
+  'san-francisco': { name: 'San Francisco', lat: 37.8, lon: -122.4 },
+  'seattle': { name: 'Seattle', lat: 47.6, lon: -122.3 },
+  'miami': { name: 'Miami', lat: 25.8, lon: -80.2 },
+  'mexico-city': { name: 'Mexico City', lat: 19.4, lon: -99.1 },
+  'sao-paulo': { name: 'São Paulo', lat: -23.5, lon: -46.6 },
+  'buenos-aires': { name: 'Buenos Aires', lat: -34.6, lon: -58.4 },
+  'santiago': { name: 'Santiago', lat: -33.4, lon: -70.7 },
+  'london': { name: 'London', lat: 51.5, lon: -0.1 },
+  'dublin': { name: 'Dublin', lat: 53.3, lon: -6.3 },
+  'amsterdam': { name: 'Amsterdam', lat: 52.4, lon: 4.9 },
+  'frankfurt': { name: 'Frankfurt', lat: 50.1, lon: 8.7 },
+  'paris': { name: 'Paris', lat: 48.9, lon: 2.4 },
+  'madrid': { name: 'Madrid', lat: 40.4, lon: -3.7 },
+  'milan': { name: 'Milan', lat: 45.5, lon: 9.2 },
+  'stockholm': { name: 'Stockholm', lat: 59.3, lon: 18.1 },
+  'warsaw': { name: 'Warsaw', lat: 52.2, lon: 21.0 },
+  'helsinki': { name: 'Helsinki', lat: 60.2, lon: 24.9 },
+  'istanbul': { name: 'Istanbul', lat: 41.0, lon: 29.0 },
+  'dubai': { name: 'Dubai', lat: 25.2, lon: 55.3 },
+  'tel-aviv': { name: 'Tel Aviv', lat: 32.1, lon: 34.8 },
+  'cairo': { name: 'Cairo', lat: 30.0, lon: 31.2 },
+  'lagos': { name: 'Lagos', lat: 6.5, lon: 3.4 },
+  'nairobi': { name: 'Nairobi', lat: -1.3, lon: 36.8 },
+  'johannesburg': { name: 'Johannesburg', lat: -26.2, lon: 28.0 },
+  'mumbai': { name: 'Mumbai', lat: 19.1, lon: 72.9 },
+  'bangalore': { name: 'Bengaluru', lat: 13.0, lon: 77.6 },
+  'singapore': { name: 'Singapore', lat: 1.3, lon: 103.8 },
+  'jakarta': { name: 'Jakarta', lat: -6.2, lon: 106.8 },
+  'hong-kong': { name: 'Hong Kong', lat: 22.3, lon: 114.2 },
+  'taipei': { name: 'Taipei', lat: 25.0, lon: 121.5 },
+  'seoul': { name: 'Seoul', lat: 37.6, lon: 127.0 },
+  'tokyo': { name: 'Tokyo', lat: 35.7, lon: 139.7 },
+  'sydney': { name: 'Sydney', lat: -33.9, lon: 151.2 },
+  'melbourne': { name: 'Melbourne', lat: -37.8, lon: 145.0 },
+  'auckland': { name: 'Auckland', lat: -36.8, lon: 174.8 },
+} as const;
+export type RegionKey = keyof typeof REGIONS;
+export function isRegion(k: unknown): k is RegionKey {
+  return typeof k === 'string' && Object.prototype.hasOwnProperty.call(REGIONS, k);
 }
 
 /** Coarse hardware classes used for suggested pricing and the earnings table. */

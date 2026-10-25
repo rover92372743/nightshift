@@ -20,6 +20,7 @@ Environment:
 |---|---|---|
 | `NIGHTSHIFT_URL` | `http://localhost:8787` | The router |
 | `NIGHTSHIFT_LABEL` | `<hostname> (gpu)` or `(cli)` | Name on the map. Pick something that doesn't identify you |
+| `NIGHTSHIFT_REGION` | unset | Optional metro key (`toronto`, `london`, `tokyo`…) so the globe can pin you. Coarse by design; see privacy |
 | `NIGHTSHIFT_PRICE` | by hardware class | µcr per 1k units for token-billed jobs. Floor is 200 |
 | `NIGHTSHIFT_HOURLY` | by hardware class | µcr per hour for time-billed jobs (1,000,000 = $1). Floor is 10,000 |
 | `NIGHTSHIFT_LLM_URL` | unset | An OpenAI-compatible server on this machine, e.g. `http://localhost:8080/v1` |

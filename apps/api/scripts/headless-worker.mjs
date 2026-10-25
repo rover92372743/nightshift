@@ -12,6 +12,7 @@
 // Environment:
 //   NIGHTSHIFT_URL        router, default http://localhost:8787
 //   NIGHTSHIFT_LABEL      name on the map, default "<hostname> (gpu)" or "(cli)"
+//   NIGHTSHIFT_REGION     optional metro key for the public globe (e.g. toronto, london). Leave unset to stay off the map's pins.
 //   NIGHTSHIFT_PRICE      µcr per 1k units; default depends on detected hardware tier
 //   NIGHTSHIFT_HOURLY     µcr per hour for time-billed jobs; default depends on tier (1,000,000 = $1)
 //   NIGHTSHIFT_LLM_URL    e.g. http://localhost:8080/v1  (llama-server) or http://localhost:11434/v1 (Ollama)
@@ -124,7 +125,7 @@ const client = new NodeClient({
   signer,
   class: 'native',
   label,
-  capabilities: { workloads, models: workloads.includes('llm') ? models : [], maxPromptChars: 16000, maxOutputTokens: maxOut, pricePer1k: price, pricePerHour: hourly, tokensPerSec: hw.gpu ? 40 : 8, hardware: { ...hw, tier } },
+  capabilities: { workloads, models: workloads.includes('llm') ? models : [], maxPromptChars: 16000, maxOutputTokens: maxOut, pricePer1k: price, pricePerHour: hourly, tokensPerSec: hw.gpu ? 40 : 8, hardware: { ...hw, tier }, region: process.env.NIGHTSHIFT_REGION || undefined },
 });
 
 console.log(`hardware: ${hw.gpu ?? 'no GPU detected'}${hw.vramGb ? ` (${hw.vramGb} GB)` : ''} → ${TIER_LABEL[tier]}, $${(hourly / 1e6).toFixed(2)}/h, ${price} µcr/1k, workloads: ${workloads.join(', ')}`);
