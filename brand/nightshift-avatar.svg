@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#c9d2e0"/>
+    </linearGradient>
+    </defs>
+  <rect width="1024" height="1024" fill="#000000"/>
+  <!-- receipt: rounded top, zig-zag tear at the bottom -->
+  <path d="M312 232 q0-40 40-40 h320 q40 0 40 40 v536 l-50-44 -50 44 -50-44 -50 44 -50-44 -50 44 -50-44 -50 44 z" fill="url(#paper)"/>
+  <rect x="384" y="330" width="256" height="40" rx="20" fill="#04060a"/>
+  <rect x="384" y="430" width="192" height="40" rx="20" fill="#04060a"/>
+  <rect x="384" y="530" width="256" height="40" rx="20" fill="#8fa3ff"/>
+</svg>
