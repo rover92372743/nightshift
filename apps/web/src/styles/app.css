@@ -523,7 +523,9 @@ input[type='range'] { width: 100%; accent-color: var(--stamp); }
 /* ---------- footer ---------- */
 
 .footer { border-top: 1px solid var(--rule); padding: 36px 0 48px; margin-top: 40px; font-size: 0.93rem; color: var(--ink-2); }
-.footer .container { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.footer .container { display: grid; gap: 18px; }
+.footer-top { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.footer-legal { margin: 0; max-width: 72ch; font-size: 0.8rem; line-height: 1.55; color: var(--ink-3, var(--ink-2)); opacity: 0.85; }
 .footer nav { display: flex; gap: 18px; flex-wrap: wrap; }
 .footer a { text-decoration: none; }
 
