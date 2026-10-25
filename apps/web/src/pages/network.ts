@@ -1,6 +1,6 @@
 import type { LiveEvent, NetworkStats, NodeClass, PublicNode, HardwareTier } from '@docket/shared';
 import { TIER_LABEL } from '@docket/shared';
-import { h, clear, tweenNumber, fmtMs, fmtCr, timeHM, mountReveals } from '../lib/dom';
+import { h, clear, tweenNumber, fmtMs, fmtUsd, fmtPerM, fmtHourly, timeHM, mountReveals } from '../lib/dom';
 import { live } from '../lib/live';
 import { api } from '../lib/api';
 import { Field, DARK } from '../lib/field';
@@ -49,7 +49,7 @@ export function networkPage(): Page {
   const pinned = h('div', { class: 'console-pinned', hidden: true });
   const field = new Field(canvas, DARK, { ghosts: 0, labels: true, interactive: true, routerLabel: 'router' });
   field.onHover = (n) => {
-    readout.firstElementChild!.textContent = n ? `${n.label} · ${n.cls} · ${n.jobs} done · ${n.price} µcr/1k` : 'Hover a node. Click one to pin it.';
+    readout.firstElementChild!.textContent = n ? `${n.label} · ${n.cls} · ${n.jobs} done · ${fmtPerM(n.price)} tokens` : 'Hover a node. Click one to pin it.';
   };
   field.onClick = (id) => {
     const n = live.nodes.get(id);
@@ -60,7 +60,7 @@ export function networkPage(): Page {
       h('span', { class: 'tag' }, n.class),
       h('div', { class: 'kv' },
         h('span', null, 'status'), h('span', null, n.status),
-        h('span', null, 'price'), h('span', null, `${n.capabilities.pricePer1k} µcr/1k`),
+        h('span', null, 'price'), h('span', null, `${fmtHourly(n.capabilities.pricePerHour)} · ${fmtPerM(n.capabilities.pricePer1k)} tokens`),
         h('span', null, 'jobs done'), h('span', null, String(n.jobsDone)),
         h('span', null, 'serves'), h('span', null, [...n.capabilities.workloads, ...n.capabilities.models].join(', ')),
         h('span', null, 'caps'), h('span', null, `${n.capabilities.maxOutputTokens} out · ${n.capabilities.maxPromptChars} chars`),
@@ -108,7 +108,7 @@ export function networkPage(): Page {
   const sQueued = stat('queued');
   const sRunning = stat('running');
   const sP95 = stat('p95 turnaround, last hour');
-  const sFloor = stat('cheapest llm quote');
+  const sFloor = stat('cheapest model quote, per 1M tokens');
   const strip = h('div', { class: 'strip' }, sOnline.el, sQueued.el, sRunning.el, sP95.el, sFloor.el);
 
   function applyStats(s: NetworkStats): void {
@@ -116,7 +116,7 @@ export function networkPage(): Page {
     tweenNumber(sQueued.n, s.jobsQueued);
     tweenNumber(sRunning.n, s.jobsRunning);
     tweenNumber(sP95.n, s.p95Ms, (n) => (s.jobsDone ? fmtMs(n) : '—'));
-    tweenNumber(sFloor.n, s.floorPricePer1k ?? 0, (n) => (s.floorPricePer1k === null ? 'no llm nodes' : `${Math.round(n)} µcr/1k`));
+    tweenNumber(sFloor.n, s.floorPricePer1k ?? 0, (n) => (s.floorPricePer1k === null ? 'no model nodes' : `$${(n / 1000).toFixed(2)}/M`));
     pushSample(s.jobsDone);
   }
 
@@ -174,7 +174,7 @@ export function networkPage(): Page {
         break;
       case 'node.up':
         rebuild(live.nodes.values());
-        log('node', `${ev.node.label} came online (${ev.node.class}, ${ev.node.capabilities.pricePer1k} µcr/1k)`);
+        log('node', `${ev.node.label} came online (${ev.node.capabilities.hardware?.gpu ?? ev.node.class}, ${fmtHourly(ev.node.capabilities.pricePerHour)})`);
         break;
       case 'node.down':
         rebuild(live.nodes.values());
@@ -196,7 +196,7 @@ export function networkPage(): Page {
         break;
       case 'job.done':
         flash(ev.nodeId, 'done');
-        log('done', `${ev.jobId.slice(0, 12)} · ${ev.units} units · ${fmtMs(ev.durationMs)} · ${fmtCr(ev.costMicro)}`);
+        log('done', `${ev.jobId.slice(0, 12)} · ${ev.units} units · ${fmtMs(ev.durationMs)} · ${fmtUsd(ev.costMicro)}`);
         break;
       case 'job.failed':
         log('failed', `${ev.jobId.slice(0, 12)} · ${ev.reason}`);
@@ -207,7 +207,7 @@ export function networkPage(): Page {
   // Backfill the feed with the last few receipts so it isn't blank on arrival.
   api.latestReceipts().then(({ receipts }) => {
     for (const r of receipts.slice(0, 6).reverse()) {
-      const row = h('div', null, h('span', { class: 't' }, timeHM(r.body.finishedAt)), h('span', { class: 'k done' }, 'done'), h('span', null, `${r.body.jobId.slice(0, 12)} · ${r.body.units} units · ${fmtMs(r.body.finishedAt - r.body.startedAt)} · ${fmtCr(r.body.costMicro)}`));
+      const row = h('div', null, h('span', { class: 't' }, timeHM(r.body.finishedAt)), h('span', { class: 'k done' }, 'done'), h('span', null, `${r.body.jobId.slice(0, 12)} · ${r.body.units} units · ${fmtMs(r.body.finishedAt - r.body.startedAt)} · ${fmtUsd(r.body.costMicro)}`));
       feedEl.appendChild(row);
     }
   }).catch(() => {});

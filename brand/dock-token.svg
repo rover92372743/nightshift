@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- $DOCK token mark. A coin with a reeded edge and a receipt at its centre:
+       the receipt is Docket's whole idea, the coin is what it settles in. -->
+  <defs>
+    <radialGradient id="face" cx="38%" cy="32%" r="80%">
+      <stop offset="0" stop-color="#2d3a4a"/>
+      <stop offset="0.6" stop-color="#161c25"/>
+      <stop offset="1" stop-color="#0b0e13"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e9eef5"/>
+      <stop offset="0.5" stop-color="#9aa8ba"/>
+      <stop offset="1" stop-color="#e9eef5"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b5bff"/>
+      <stop offset="1" stop-color="#2745d6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- reeded edge: 72 teeth -->
+  <g fill="url(#rim)">
+    <circle cx="256" cy="256" r="248"/>
+  </g>
+  <g fill="#0b0e13" opacity="0.35">
+    <g id="tooth"><rect x="252" y="6" width="8" height="18" rx="2"/></g>
+    <use href="#tooth" transform="rotate(5 256 256)"/><use href="#tooth" transform="rotate(10 256 256)"/><use href="#tooth" transform="rotate(15 256 256)"/><use href="#tooth" transform="rotate(20 256 256)"/><use href="#tooth" transform="rotate(25 256 256)"/><use href="#tooth" transform="rotate(30 256 256)"/><use href="#tooth" transform="rotate(35 256 256)"/><use href="#tooth" transform="rotate(40 256 256)"/><use href="#tooth" transform="rotate(45 256 256)"/><use href="#tooth" transform="rotate(50 256 256)"/><use href="#tooth" transform="rotate(55 256 256)"/><use href="#tooth" transform="rotate(60 256 256)"/><use href="#tooth" transform="rotate(65 256 256)"/><use href="#tooth" transform="rotate(70 256 256)"/><use href="#tooth" transform="rotate(75 256 256)"/><use href="#tooth" transform="rotate(80 256 256)"/><use href="#tooth" transform="rotate(85 256 256)"/><use href="#tooth" transform="rotate(90 256 256)"/><use href="#tooth" transform="rotate(95 256 256)"/><use href="#tooth" transform="rotate(100 256 256)"/><use href="#tooth" transform="rotate(105 256 256)"/><use href="#tooth" transform="rotate(110 256 256)"/><use href="#tooth" transform="rotate(115 256 256)"/><use href="#tooth" transform="rotate(120 256 256)"/><use href="#tooth" transform="rotate(125 256 256)"/><use href="#tooth" transform="rotate(130 256 256)"/><use href="#tooth" transform="rotate(135 256 256)"/><use href="#tooth" transform="rotate(140 256 256)"/><use href="#tooth" transform="rotate(145 256 256)"/><use href="#tooth" transform="rotate(150 256 256)"/><use href="#tooth" transform="rotate(155 256 256)"/><use href="#tooth" transform="rotate(160 256 256)"/><use href="#tooth" transform="rotate(165 256 256)"/><use href="#tooth" transform="rotate(170 256 256)"/><use href="#tooth" transform="rotate(175 256 256)"/><use href="#tooth" transform="rotate(180 256 256)"/><use href="#tooth" transform="rotate(185 256 256)"/><use href="#tooth" transform="rotate(190 256 256)"/><use href="#tooth" transform="rotate(195 256 256)"/><use href="#tooth" transform="rotate(200 256 256)"/><use href="#tooth" transform="rotate(205 256 256)"/><use href="#tooth" transform="rotate(210 256 256)"/><use href="#tooth" transform="rotate(215 256 256)"/><use href="#tooth" transform="rotate(220 256 256)"/><use href="#tooth" transform="rotate(225 256 256)"/><use href="#tooth" transform="rotate(230 256 256)"/><use href="#tooth" transform="rotate(235 256 256)"/><use href="#tooth" transform="rotate(240 256 256)"/><use href="#tooth" transform="rotate(245 256 256)"/><use href="#tooth" transform="rotate(250 256 256)"/><use href="#tooth" transform="rotate(255 256 256)"/><use href="#tooth" transform="rotate(260 256 256)"/><use href="#tooth" transform="rotate(265 256 256)"/><use href="#tooth" transform="rotate(270 256 256)"/><use href="#tooth" transform="rotate(275 256 256)"/><use href="#tooth" transform="rotate(280 256 256)"/><use href="#tooth" transform="rotate(285 256 256)"/><use href="#tooth" transform="rotate(290 256 256)"/><use href="#tooth" transform="rotate(295 256 256)"/><use href="#tooth" transform="rotate(300 256 256)"/><use href="#tooth" transform="rotate(305 256 256)"/><use href="#tooth" transform="rotate(310 256 256)"/><use href="#tooth" transform="rotate(315 256 256)"/><use href="#tooth" transform="rotate(320 256 256)"/><use href="#tooth" transform="rotate(325 256 256)"/><use href="#tooth" transform="rotate(330 256 256)"/><use href="#tooth" transform="rotate(335 256 256)"/><use href="#tooth" transform="rotate(340 256 256)"/><use href="#tooth" transform="rotate(345 256 256)"/><use href="#tooth" transform="rotate(350 256 256)"/><use href="#tooth" transform="rotate(355 256 256)"/>
+  </g>
+
+  <!-- face -->
+  <circle cx="256" cy="256" r="222" fill="url(#face)"/>
+  <circle cx="256" cy="256" r="222" fill="none" stroke="#5c6a7d" stroke-width="2"/>
+  <circle cx="256" cy="256" r="204" fill="none" stroke="#2a3443" stroke-width="1.5" stroke-dasharray="3 5"/>
+
+  <!-- the receipt -->
+  <path d="M184 140 h144 v212 l-12-10 -12 10 -12-10 -12 10 -12-10 -12 10 -12-10 -12 10 -12-10 -12 10 -12-10 -12 10 z" fill="#eef1f4"/>
+  <rect x="206" y="172" width="100" height="10" rx="5" fill="#141a22"/>
+  <rect x="206" y="196" width="68" height="10" rx="5" fill="#141a22"/>
+  <rect x="206" y="220" width="84" height="10" rx="5" fill="#141a22"/>
+  <line x1="206" y1="256" x2="306" y2="256" stroke="#141a22" stroke-width="2" stroke-dasharray="4 5"/>
+  <rect x="206" y="276" width="100" height="14" rx="7" fill="url(#ink)"/>
+
+  <!-- wordmark on the rim -->
+  <path id="arc" d="M256 256 m-186 0 a186 186 0 1 1 372 0" fill="none"/>
+  <text font-family="Inter Tight, Inter, Helvetica, Arial, sans-serif" font-weight="700" font-size="34" letter-spacing="7" fill="#c9d3e0">
+    <textPath href="#arc" startOffset="50%" text-anchor="middle">DOCK</textPath>
+  </text>
+  <path id="arc2" d="M70 256 a186 186 0 0 0 372 0" fill="none"/>
+  <text font-family="Inter Tight, Inter, Helvetica, Arial, sans-serif" font-weight="600" font-size="20" letter-spacing="5" fill="#7d8aa0">
+    <textPath href="#arc2" startOffset="50%" text-anchor="middle">EVERY TASK · A RECEIPT</textPath>
+  </text>
+</svg>

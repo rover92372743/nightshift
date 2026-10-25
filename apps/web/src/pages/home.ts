@@ -1,5 +1,5 @@
 import type { LiveEvent, NetworkStats } from '@docket/shared';
-import { h, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtCr, isPreview } from '../lib/dom';
+import { h, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtUsd, fmtPerM, isPreview } from '../lib/dom';
 import { live } from '../lib/live';
 import { api, ApiError } from '../lib/api';
 import { receiptEl, sampleReceipt, tilt } from '../lib/receipt';
@@ -16,7 +16,7 @@ export function homePage(): Page {
   const field = new Field(canvas, LIGHT, { ghosts: 24, labels: false, interactive: true, center: [0.56, 0.5], spread: 1.15 });
   field.onHover = (n) => {
     hoverTip.hidden = !n;
-    if (n) hoverTip.textContent = `${n.label} · ${n.cls} · ${n.jobs} done · ${n.price} µcr/1k`;
+    if (n) hoverTip.textContent = `${n.label} · ${n.cls} · ${n.jobs} done · ${fmtPerM(n.price)} tokens`;
   };
   field.onClick = () => navigate('/network');
   canvas.addEventListener('pointermove', (e) => {
@@ -46,7 +46,7 @@ export function homePage(): Page {
         printer.classList.add('is-printing');
         const dur = prefersReducedMotion() ? 0 : 1400;
         setTimeout(() => rc.classList.add('is-verified'), dur + 100);
-        caption.textContent = `Printed just now: ${receipt.body.workload === 'llm' ? 'an llm' : 'a compute'} job on a ${receipt.body.nodeClass} node, ${fmtMs(receipt.body.finishedAt - receipt.body.startedAt)}, ${fmtCr(receipt.body.costMicro)}.`;
+        caption.textContent = `Printed just now: ${receipt.body.workload === 'llm' ? 'an llm' : 'a compute'} job on a ${receipt.body.nodeClass} node, ${fmtMs(receipt.body.finishedAt - receipt.body.startedAt)}, ${fmtUsd(receipt.body.costMicro)}.`;
         setTimeout(() => (printing = false), dur + 600);
       })
       .catch(() => (printing = false));

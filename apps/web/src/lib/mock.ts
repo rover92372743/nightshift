@@ -107,6 +107,20 @@ export class MockRouter {
     this.simNode('browser', 'chrome on windows', { workloads: ['compute'], models: [], maxPromptChars: 6000, maxOutputTokens: 128, pricePer1k: 210, pricePerHour: 20_000, tokensPerSec: 9, hardware: { tier: 'cpu' } });
     this.simNode('browser', 'firefox on mac', { workloads: ['llm', 'compute'], models: ['qwen2.5-0.5b-instruct'], maxPromptChars: 6000, maxOutputTokens: 192, pricePer1k: 230, pricePerHour: 90_000, tokensPerSec: 18, hardware: { gpu: 'Apple M1', tier: 'gpu-8' } });
     setInterval(() => this.emit({ t: 'stats', stats: this.stats() }), 4000);
+    // Simulated customer traffic: a job every couple of seconds, billed to a
+    // demo account rather than the viewer. Keeps the map moving.
+    const tick = () => {
+      const llm = Math.random() < 0.55;
+      const timeBilled = Math.random() < 0.4; // routes by hourly price, so a different node wins
+      void this.enqueue(
+        llm
+          ? { workload: 'llm', model: Math.random() < 0.35 ? 'qwen2.5-7b-instruct' : 'qwen2.5-0.5b-instruct', messages: [{ role: 'user', content: 'demo' }], maxOutputTokens: 64 + Math.floor(Math.random() * 160), billing: timeBilled ? 'time' : 'tokens', maxSeconds: 30 }
+          : { workload: 'compute', rounds: 20_000 + Math.floor(Math.random() * 120_000), billing: timeBilled ? 'time' : 'tokens', maxSeconds: 30 },
+        true,
+      ).catch(() => {});
+      setTimeout(tick, 350 + Math.random() * 900);
+    };
+    setTimeout(tick, 1500);
     // Occasionally a simulated node comes and goes so the map has some life.
     setInterval(() => {
       if (Math.random() < 0.4) {
@@ -181,22 +195,32 @@ export class MockRouter {
     return this.online().filter((n) => n.status === 'online' && n.caps.workloads.includes(input.workload) && (input.workload !== 'llm' || n.caps.models.includes(input.model)) && chars <= n.caps.maxPromptChars && (input.maxOutputTokens ?? 0) <= n.caps.maxOutputTokens);
   }
 
-  async enqueue(raw: Partial<JobInput>): Promise<JobRecord> {
+  async enqueue(raw: Partial<JobInput>, demo = false): Promise<JobRecord> {
     let input: JobInput;
-    if (raw.workload === 'compute') input = { workload: 'compute', model: 'hashchain-v1', seed: Math.floor(Number(raw.seed ?? Math.random() * 2 ** 31)), rounds: Math.min(2_000_000, Math.max(1000, Number(raw.rounds ?? 100_000))) };
+    const billing = raw.billing === 'time' ? 'time' : 'tokens';
+    const maxSeconds = billing === 'time' ? Math.min(3600, Math.max(5, Number(raw.maxSeconds ?? 60))) : undefined;
+    if (raw.workload === 'compute') input = { workload: 'compute', billing, maxSeconds, model: 'hashchain-v1', seed: Math.floor(Number(raw.seed ?? Math.random() * 2 ** 31)), rounds: Math.min(2_000_000, Math.max(1000, Number(raw.rounds ?? 100_000))) };
     else {
       if (!raw.messages?.length) throw new HttpError(400, 'messages required');
-      input = { workload: 'llm', model: String(raw.model ?? 'qwen2.5-0.5b-instruct'), messages: raw.messages, maxOutputTokens: Math.min(2048, Math.max(1, Number(raw.maxOutputTokens ?? 128))), temperature: Number(raw.temperature ?? 0.7) };
+      input = { workload: 'llm', billing, maxSeconds, model: String(raw.model ?? 'qwen2.5-0.5b-instruct'), messages: raw.messages, maxOutputTokens: Math.min(2048, Math.max(1, Number(raw.maxOutputTokens ?? 128))), temperature: Number(raw.temperature ?? 0.7) };
     }
     const units = input.workload === 'llm' ? input.maxOutputTokens! : Math.ceil(input.rounds! / COMPUTE_ROUNDS_PER_UNIT);
     const cands = this.candidates(input);
-    const per1k = cands.length ? Math.min(...cands.map((n) => n.caps.pricePer1k)) : PRICE_FLOOR_PER_1K;
-    const price = Math.max(1, Math.ceil((units * per1k) / 1000));
-    if (this.balance < price) throw new HttpError(402, `not enough credits: need ${price}, have ${this.balance}`);
-    this.balance -= price;
-    this.ledger.unshift({ id: id('lg'), deltaMicro: -price, kind: 'charge', createdAt: Date.now() });
-    const job: JobRecord = { id: id('job'), status: 'queued', requesterId: 'session', input, inputHash: await sha256(canonical(input)), attempts: 0, priceMicro: price, createdAt: Date.now() };
-    this.ledger[0].ref = job.id;
+    let price: number;
+    if (billing === 'time') {
+      const perHour = cands.length ? Math.min(...cands.map((n) => n.caps.pricePerHour ?? 20_000)) : 20_000;
+      price = Math.max(1, Math.ceil(((maxSeconds ?? 60) * perHour) / 3600));
+    } else {
+      const per1k = cands.length ? Math.min(...cands.map((n) => n.caps.pricePer1k)) : PRICE_FLOOR_PER_1K;
+      price = Math.max(1, Math.ceil((units * per1k) / 1000));
+    }
+    if (!demo) {
+      if (this.balance < price) throw new HttpError(402, `not enough credits: need ${price}, have ${this.balance}`);
+      this.balance -= price;
+      this.ledger.unshift({ id: id('lg'), deltaMicro: -price, kind: 'charge', createdAt: Date.now() });
+    }
+    const job: JobRecord = { id: id('job'), status: 'queued', requesterId: demo ? 'demo' : 'session', input, inputHash: await sha256(canonical(input)), attempts: 0, priceMicro: price, createdAt: Date.now() };
+    if (!demo) this.ledger[0].ref = job.id;
     this.jobs.set(job.id, job);
     this.emit({ t: 'job.queued', jobId: job.id, workload: input.workload, model: input.model });
     setTimeout(() => this.dispatch(), 350);
@@ -205,7 +229,9 @@ export class MockRouter {
 
   dispatch(): void {
     for (const job of Array.from(this.jobs.values()).filter((j) => j.status === 'queued').sort((a, b) => a.createdAt - b.createdAt)) {
-      const cands = this.candidates(job.input).sort((a, b) => a.caps.pricePer1k - b.caps.pricePer1k || (b.caps.tokensPerSec ?? 0) - (a.caps.tokensPerSec ?? 0));
+      const byTime = job.input.billing === 'time';
+      const pr = (n: MNode) => (byTime ? n.caps.pricePerHour ?? 20_000 : n.caps.pricePer1k);
+      const cands = this.candidates(job.input).sort((a, b) => pr(a) - pr(b) || (b.caps.tokensPerSec ?? 0) - (a.caps.tokensPerSec ?? 0));
       const node = cands[0];
       if (!node) continue;
       job.status = 'assigned';
@@ -227,18 +253,28 @@ export class MockRouter {
     if (job.input.workload === 'compute') {
       const t0 = performance.now();
       const digest = await computeTask(job.input.seed!, job.input.rounds!);
-      output = { digest, outputTokens: 0, units: Math.ceil(job.input.rounds! / COMPUTE_ROUNDS_PER_UNIT), durationMs: performance.now() - t0 + 300 };
-      await new Promise((r) => setTimeout(r, 300));
+      const pad = job.requesterId === 'demo' ? 1200 + Math.random() * 2800 : 300;
+      output = { digest, outputTokens: 0, units: Math.ceil(job.input.rounds! / COMPUTE_ROUNDS_PER_UNIT), durationMs: performance.now() - t0 + pad };
+      await new Promise((r) => setTimeout(r, pad));
     } else {
       const text = REPLIES[Math.floor(Math.random() * REPLIES.length)];
       const toks = Math.min(job.input.maxOutputTokens ?? 128, Math.ceil(text.length / 4));
-      await new Promise((r) => setTimeout(r, 900 + toks * 25));
-      output = { text, outputTokens: toks, units: toks, durationMs: 900 + toks * 25 };
+      const ms = (job.requesterId === 'demo' ? 900 + Math.random() * 2500 : 600) + toks * 12;
+      await new Promise((r) => setTimeout(r, ms));
+      output = { text, outputTokens: toks, units: toks, durationMs: ms };
     }
     const outputHash = await sha256(job.input.workload === 'llm' ? output.text! : output.digest!);
-    const cost = Math.min(job.priceMicro, Math.max(1, Math.ceil((output.units * node.caps.pricePer1k) / 1000)));
+    const cost = this.costFor(job, node, output.units);
     const body: ReceiptBody = { v: 1, jobId: job.id, nodeId: node.id, nodeClass: node.cls, workload: job.input.workload, model: job.input.model, inputHash: job.inputHash, outputHash, outputTokens: output.outputTokens, units: output.units, startedAt: job.startedAt, finishedAt: Date.now(), costMicro: cost };
     await this.complete(node.id, job.id, output, body, sign(canonical(body), node.sk!));
+  }
+
+  private costFor(job: JobRecord, node: MNode, units: number): number {
+    if (job.input.billing === 'time') {
+      const seconds = Math.max(1, Math.ceil((Date.now() - (job.startedAt ?? job.createdAt)) / 1000));
+      return Math.min(job.priceMicro, Math.max(1, Math.ceil((seconds * (node.caps.pricePerHour ?? 20_000)) / 3600)));
+    }
+    return Math.min(job.priceMicro, Math.max(1, Math.ceil((units * node.caps.pricePer1k) / 1000)));
   }
 
   async complete(nodeId: string, jobId: string, output: JobOutput, body: ReceiptBody, nodeSig: string): Promise<Receipt> {
@@ -256,30 +292,37 @@ export class MockRouter {
       node.status = 'online';
       job.status = 'failed';
       job.error = 'spot check failed';
-      this.balance += job.priceMicro;
+      if (job.requesterId !== 'demo') this.balance += job.priceMicro;
       this.emit({ t: 'job.failed', jobId: job.id, nodeId, reason: 'spot check failed: output digest did not match' });
       throw new HttpError(422, 'spot check failed');
     }
     const units = output.units;
-    const cost = Math.min(job.priceMicro, Math.max(1, Math.ceil((units * node.caps.pricePer1k) / 1000)));
-    if (body.costMicro !== cost) throw new HttpError(400, `receipt cost mismatch (expected ${cost})`);
+    const cost = this.costFor(job, node, units);
+    if (body.costMicro !== cost) {
+      const slack = Math.ceil((2 * (node.caps.pricePerHour ?? 20_000)) / 3600) + 1;
+      if (!(job.input.billing === 'time' && body.costMicro <= job.priceMicro && Math.abs(body.costMicro - cost) <= slack)) throw new HttpError(400, `receipt cost mismatch (expected ${cost})`);
+    }
     const receipt: Receipt = { id: id('rcpt'), body, nodeSig, routerSig: sign(canon + '.' + nodeSig, this.rk.secretKey), routerKey: this.routerKey, nodeKey: node.pk };
     job.status = 'done';
     job.output = output;
-    job.costMicro = cost;
+    job.costMicro = body.costMicro;
     job.finishedAt = Date.now();
-    const refund = job.priceMicro - cost;
-    this.balance += refund;
-    if (refund) this.ledger.unshift({ id: id('lg'), deltaMicro: refund, kind: 'refund', ref: job.id, createdAt: Date.now() });
+    const refund = job.priceMicro - body.costMicro;
+    if (job.requesterId !== 'demo') {
+      this.balance += refund;
+      if (refund) this.ledger.unshift({ id: id('lg'), deltaMicro: refund, kind: 'refund', ref: job.id, createdAt: Date.now() });
+    }
     node.jobsDone++;
     node.units += units;
-    node.earned += cost;
-    node.balance += cost;
+    node.earned += body.costMicro;
+    node.balance += body.costMicro;
     node.status = 'online';
     this.receipts.set(receipt.id, receipt);
     this.lat.push(job.finishedAt - job.createdAt);
     if (this.lat.length > 100) this.lat.shift();
-    this.emit({ t: 'job.done', jobId: job.id, nodeId, units, durationMs: job.finishedAt - (job.startedAt ?? job.createdAt), costMicro: cost });
+    if (this.jobs.size > 400) for (const k of Array.from(this.jobs.keys()).slice(0, 100)) this.jobs.delete(k);
+    if (this.receipts.size > 200) for (const k of Array.from(this.receipts.keys()).slice(0, 50)) this.receipts.delete(k);
+    this.emit({ t: 'job.done', jobId: job.id, nodeId, units, durationMs: job.finishedAt - (job.startedAt ?? job.createdAt), costMicro: body.costMicro });
     this.emit({ t: 'node.busy', nodeId, busy: false });
     setTimeout(() => this.dispatch(), 100);
     return receipt;
@@ -294,7 +337,7 @@ export class MockRouter {
     if (job.attempts >= 3) {
       job.status = 'failed';
       job.error = reason;
-      this.balance += job.priceMicro;
+      if (job.requesterId !== 'demo') this.balance += job.priceMicro;
       this.emit({ t: 'job.failed', jobId, nodeId, reason });
     } else {
       job.status = 'queued';
@@ -346,7 +389,7 @@ export class MockRouter {
       return r ? { status: 200, body: { receipt: r, valid: this.checkReceipt(r) } } : { status: 404, body: err('receipt not found') };
     }
     if (path === '/v1/jobs' && method === 'POST') return { status: 202, body: await this.enqueue(b) };
-    if (path === '/v1/jobs' && method === 'GET') return { status: 200, body: { jobs: Array.from(this.jobs.values()).reverse().slice(0, 20) } };
+    if (path === '/v1/jobs' && method === 'GET') return { status: 200, body: { jobs: Array.from(this.jobs.values()).filter((j) => j.requesterId === 'session').reverse().slice(0, 20) } };
     if ((x = m(/^\/v1\/jobs\/([^/]+)$/))) {
       const j = this.jobs.get(x[1]);
       return j ? { status: 200, body: { ...j, receipt: j.status === 'done' ? this.receiptFor(j.id) : undefined } } : { status: 404, body: err('job not found') };

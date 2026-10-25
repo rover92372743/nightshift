@@ -8,7 +8,7 @@
 
 import { NodeClient, TIER_LABEL, PAYOUT_MIN_MICRO, type JobRecord, type Signer } from '@docket/shared';
 import { nodeRuntime, type NodeSettings } from '../lib/noderuntime';
-import { h, clear, fmtMs, mountReveals, timeHM, copyText, isPreview } from '../lib/dom';
+import { h, clear, fmtMs, mountReveals, timeHM, copyText, isPreview, fmtPerM } from '../lib/dom';
 import { API_BASE } from '../lib/api';
 import { loadOrCreateNodeKey, importNodeKey } from '../lib/keys';
 import { Field, LIGHT } from '../lib/field';
@@ -73,7 +73,7 @@ export function earnPage(): Page {
       line('node', `${n.label}  ${n.id}`),
       line('status', n.status),
       line('hardware', `${hw?.gpu ?? 'not reported'}${hw?.vramGb ? `, ${hw.vramGb} GB` : ''}${hw?.tier ? `  (${TIER_LABEL[hw.tier]})` : ''}`),
-      line('price', `$${((n.capabilities.pricePerHour ?? 0) / 1e6).toFixed(2)} per hour · ${n.capabilities.pricePer1k} µcr per 1k units`),
+      line('price', `$${((n.capabilities.pricePerHour ?? 0) / 1e6).toFixed(2)} per hour · ${fmtPerM(n.capabilities.pricePer1k)} tokens`),
       line('uptime', `${hm(me.uptimeMs24h)} today`),
       '',
       line('balance', `${usd(me.balanceMicro)}  spendable or payable`),
@@ -131,7 +131,7 @@ export function earnPage(): Page {
 
   // --- the node in this tab ----------------------------------------------------
   const label = h('input', { class: 'input', value: prefs.label, maxlength: 48, id: 'n-label' }) as HTMLInputElement;
-  const price = h('input', { class: 'input', type: 'number', min: 200, max: 100000, step: 10, value: prefs.price, id: 'n-price' }) as HTMLInputElement;
+  const price = h('input', { class: 'input', type: 'number', min: 0.2, max: 100, step: 0.05, value: (prefs.price / 1000).toFixed(2), id: 'n-price' }) as HTMLInputElement;
   const serveModel = h('input', { type: 'checkbox', checked: prefs.serveModel, id: 'n-model' }) as HTMLInputElement;
   const background = h('input', { type: 'checkbox', checked: prefs.background, id: 'n-bg' }) as HTMLInputElement;
   const modelLabel = h('span', null, 'Serve model tasks on this GPU (WebGPU)');
@@ -179,7 +179,7 @@ export function earnPage(): Page {
   });
 
   startBtn.addEventListener('click', () => {
-    const p: Prefs = { label: label.value.trim() || defaultLabel(), price: Number(price.value) || 250, serveModel: serveModel.checked, background: background.checked, maxOut: 192 };
+    const p: Prefs = { label: label.value.trim() || defaultLabel(), price: Math.round((Number(price.value) || 0.25) * 1000), serveModel: serveModel.checked, background: background.checked, maxOut: 192 };
     savePrefs(p);
     void nodeRuntime.start(key, p);
   });
@@ -238,7 +238,7 @@ export function earnPage(): Page {
           progress,
           gpuLine,
           miniCanvas,
-          h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Node name on the map'), label), h('label', { class: 'field' }, h('span', null, 'Price, µcr per 1k units'), price)),
+          h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Node name on the map'), label), h('label', { class: 'field' }, h('span', null, 'Your price, $ per 1M tokens'), price)),
           h('label', { class: 'row' }, serveModel, modelLabel),
           h('label', { class: 'row' }, background, h('span', null, 'Keep working when this tab is in the background')),
           h('div', { class: 'row' }, startBtn, stopBtn),

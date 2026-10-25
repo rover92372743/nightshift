@@ -1,5 +1,5 @@
 import type { Receipt } from '@docket/shared';
-import { h, fmtCr, fmtMs } from './dom';
+import { h, fmtUsd, fmtMs } from './dom';
 
 function short(s: string, n = 14): string {
   return s.length <= n ? s : s.slice(0, n) + '…';
@@ -22,7 +22,7 @@ export function receiptEl(r: Receipt, opts: { verified?: boolean; compact?: bool
     line('took', fmtMs(b.finishedAt - b.startedAt)),
     line(b.workload === 'llm' ? 'output tokens' : 'work units', String(b.workload === 'llm' ? b.outputTokens : b.units)),
     h('hr', { class: 'dots' }),
-    line('cost', `${fmtCr(b.costMicro)}`, 'big'),
+    line('cost', fmtUsd(b.costMicro), 'big'),
     opts.compact
       ? null
       : [

@@ -4,7 +4,7 @@
 // winner get stamped.
 
 import type { NodeClass } from '@docket/shared';
-import { h, prefersReducedMotion } from '../lib/dom';
+import { h, prefersReducedMotion, fmtPerM, fmtUsd } from '../lib/dom';
 
 interface SimNode {
   id: string;
@@ -71,7 +71,7 @@ export function simulatorSection(): HTMLElement {
       'div',
       { class: `sim-card ${n.cls}`, 'data-id': n.id },
       h('div', { class: 'sim-top' }, h('b', null, n.label), h('span', { class: 'tag' }, n.cls)),
-      h('div', { class: 'sim-price' }, String(n.price), h('small', null, ' µcr/1k')),
+      h('div', { class: 'sim-price' }, `$${(n.price / 1000).toFixed(2)}`, h('small', null, ' per 1M tokens')),
       h(
         'div',
         { class: 'sim-meta' },
@@ -153,7 +153,7 @@ export function simulatorSection(): HTMLElement {
     const win = sorted[0];
     cardOf.get(win.id)!.classList.add('win');
     const hold = Math.ceil((Number(tokens.value) * win.price) / 1000);
-    verdict.textContent = `${win.label} wins at ${win.price} µcr/1k. The router holds ${hold} µcr and sends the job there.`;
+    verdict.textContent = `${win.label} wins at ${fmtPerM(win.price)} tokens. The router holds ${fmtUsd(hold)} and sends the job there.`;
     route.disabled = false;
     shuffle.disabled = false;
   }

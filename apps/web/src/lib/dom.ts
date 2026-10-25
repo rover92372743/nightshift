@@ -51,10 +51,27 @@ export function fmtMs(ms: number): string {
   return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)} s`;
 }
 
-/** Small amounts read better in µcr; anything over a tenth of a credit reads as credits. */
-export function fmtCr(micro: number, digits = 4): string {
-  if (Math.abs(micro) < 100_000) return `${fmtInt(micro)} µcr`;
-  return `${(micro / 1_000_000).toFixed(digits)} cr`;
+/**
+ * Money. One credit is one US dollar; the ledger counts millionths of one.
+ * Dollars for anything you'd notice, more decimals for the tiny amounts a
+ * single task costs, never scientific notation and never internal units.
+ */
+export function fmtUsd(micro: number): string {
+  const usd = micro / 1_000_000;
+  const abs = Math.abs(usd);
+  if (abs >= 1) return `$${usd.toFixed(2)}`;
+  if (abs >= 0.01) return `$${usd.toFixed(4)}`;
+  if (abs === 0) return '$0.00';
+  return `$${usd.toFixed(6).replace(/0+$/, '')}`;
+}
+/** Kept for callers that still pass through here. */
+export const fmtCr = fmtUsd;
+/** A per-1k-units price in µcr shown as dollars per million. */
+export function fmtPerM(per1k: number): string {
+  return `$${(per1k / 1000).toFixed(2)}/M`;
+}
+export function fmtHourly(perHour: number | undefined): string {
+  return `$${((perHour ?? 0) / 1_000_000).toFixed(2)}/h`;
 }
 
 export function timeHM(ts: number): string {
