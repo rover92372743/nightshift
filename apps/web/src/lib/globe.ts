@@ -416,16 +416,16 @@ export class Globe {
     return z > -0.05 ? [x, y] : null;
   }
 
-  /** The router: a satellite on a tilted orbit, just outside the globe. */
+  /**
+   * The router: a satellite circling just outside the rim, in the screen
+   * plane, so it is always in front and never clips through the globe.
+   * z is kept for the call sites but is always positive.
+   */
   private sat3(): [number, number, number] {
-    const t = ((performance.now() - this.t0) / 1000) * (this.reduced ? 0 : 0.18) + 2.1;
-    const R = this.radius() * (this.focus ? 1.08 : 1.32);
+    const t = ((performance.now() - this.t0) / 1000) * (this.reduced ? 0 : 0.14) + 2.4;
+    const R = this.radius() * (this.focus ? 1.12 : 1.22);
     const [cx, cy] = this.centre();
-    const incl = 0.55;
-    const x = Math.cos(t);
-    const y = Math.sin(t) * Math.sin(incl);
-    const z = Math.sin(t) * Math.cos(incl);
-    return [cx + x * R, cy - y * R * 0.9, z];
+    return [cx + Math.cos(t) * R, cy + Math.sin(t) * R * 0.92, 1];
   }
   private satPos(): [number, number] | null {
     const [x, y] = this.sat3();
@@ -485,7 +485,6 @@ export class Globe {
 
     // satellite behind the globe?
     const sat = this.sat3();
-    if (sat[2] < 0) this.drawSat(sat, t, 0.35);
 
     // atmosphere
     const atm = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.25);
@@ -717,7 +716,7 @@ export class Globe {
     ctx.globalAlpha = 1;
 
     // satellite in front
-    if (sat[2] >= 0) this.drawSat(sat, t, 1);
+    this.drawSat(sat, t, 1);
 
     this.drawHud(t);
   }
@@ -740,6 +739,16 @@ export class Globe {
 
   private drawSat([x, y]: [number, number, number], t: number, alpha: number): void {
     const { ctx } = this;
+    // its orbit, faintly, so the motion reads as a path and not a wander
+    const [cx, cy] = this.centre();
+    const R = this.radius() * (this.focus ? 1.12 : 1.22);
+    ctx.strokeStyle = 'rgba(143,163,255,0.10)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 7]);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, R, R * 0.92, 0, 0, 6.283);
+    ctx.stroke();
+    ctx.setLineDash([]);
     ctx.globalAlpha = alpha;
     const halo = ctx.createRadialGradient(x, y, 2, x, y, 26 + this.satPulse * 14);
     halo.addColorStop(0, `rgba(223,230,238,${0.35 + this.satPulse * 0.4})`);

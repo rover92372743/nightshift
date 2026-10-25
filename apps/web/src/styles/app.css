@@ -294,22 +294,13 @@ img, svg, canvas { display: block; max-width: 100%; }
 .trace-step h3 { font-size: 1.05rem; }
 .trace-step p { color: var(--ink-2); font-size: 0.95rem; margin-top: 4px; }
 .trace-stage { position: sticky; top: 88px; }
-.trace-stage .card { min-height: 380px; display: grid; }
-.trace-stage svg { width: 100%; height: auto; }
-.trace-stage .stage-note { font-size: 0.92rem; color: var(--ink-2); padding: 12px 4px 0; }
+.trace-stage .card { display: grid; }
+.trace-card { background: #020305; border-color: #1a2130; overflow: hidden; }
+.trace-canvas { width: 100%; height: clamp(300px, 36vw, 420px); display: block; }
+.trace-stage .stage-note { font-size: 0.92rem; color: #9aa7b8; padding: 12px 16px 14px; border-top: 1px solid #1a2130; margin: 0; }
 @media (max-width: 860px) { .trace { grid-template-columns: 1fr; } .trace-stage { position: static; } }
 
 /* trace figure pieces */
-.tf text { font-family: var(--sans); font-size: 12px; fill: var(--ink-2); }
-.tf .box { fill: var(--receipt); stroke: var(--rule); }
-.tf .box.on { stroke: var(--stamp); stroke-width: 1.5; }
-.tf .wire { stroke: var(--rule); fill: none; stroke-width: 1.5; }
-.tf .wire.on { stroke: var(--stamp); stroke-dasharray: 6 6; animation: dash 900ms linear infinite; }
-@keyframes dash { to { stroke-dashoffset: -24; } }
-.tf .dot { fill: var(--stamp); }
-.tf .cell { fill: var(--paper-2); }
-.tf .cell.lit { fill: var(--stamp); }
-.tf .cell.dim { fill: var(--rule); }
 
 /* ---------- two-paths ---------- */
 

@@ -1,7 +1,8 @@
 // "Follow one call" — eight steps, one figure. Clicking a step or scrolling
 // past it changes which parts of the figure are lit.
 
-import { h, svg, prefersReducedMotion } from '../lib/dom';
+import { h, prefersReducedMotion } from '../lib/dom';
+import { TraceScene } from '../lib/tracescene';
 
 interface Step {
   title: string;
@@ -20,105 +21,14 @@ export const STEPS: Step[] = [
   { title: 'Everyone settles', body: 'Actual usage is charged, the unused part of the hold is refunded, and the node is credited. The receipt is stored and handed back.', note: 'Anyone with the receipt can verify it later without asking the router.' },
 ];
 
-const FIG = `
-<svg class="tf" viewBox="0 0 560 320" role="img" aria-label="Diagram of a request moving from the requester to the router to a node and back">
-  <!-- requester -->
-  <rect id="t-req" class="box" x="16" y="128" width="96" height="56" rx="8"/>
-  <text x="64" y="151" text-anchor="middle">your app</text>
-  <text x="64" y="167" text-anchor="middle" style="font-size:11px">POST /v1/…</text>
-  <!-- router -->
-  <rect id="t-router" class="box" x="196" y="112" width="128" height="88" rx="10"/>
-  <text x="260" y="140" text-anchor="middle" style="font-weight:600;fill:var(--ink)">router</text>
-  <text id="t-router-sub" x="260" y="158" text-anchor="middle" style="font-size:11px"></text>
-  <text id="t-router-sub2" x="260" y="174" text-anchor="middle" style="font-size:11px"></text>
-  <!-- ledger -->
-  <rect id="t-ledger" class="box" x="214" y="232" width="92" height="40" rx="8"/>
-  <text x="260" y="256" text-anchor="middle">ledger</text>
-  <path id="w-ledger" class="wire" d="M260 200 V232"/>
-  <!-- wires -->
-  <path id="w-in" class="wire" d="M112 156 H196"/>
-  <path id="w-out" class="wire" d="M196 156 H112" style="opacity:0"/>
-  <path id="w-node" class="wire" d="M324 156 H372"/>
-  <!-- node columns -->
-  <g id="t-nodes">
-    <text x="372" y="60">browser</text>
-    <text x="420" y="60">native</text>
-    <text x="468" y="60">cloud</text>
-    <text x="516" y="60" style="font-size:11px">external</text>
-  </g>
-  <!-- receipt -->
-  <g id="t-receipt" style="opacity:0;transition:opacity .4s">
-    <path class="box" d="M372 236 h88 v62 l-5.5-4.5 -5.5 4.5 -5.5-4.5 -5.5 4.5 -5.5-4.5 -5.5 4.5 -5.5-4.5 -5.5 4.5 -5.5-4.5 -5.5 4.5 -5.5-4.5 -5.5 4.5 -5.5-4.5 -5.5 4.5 -5.5-4.5 -5.5 4.5 -5.5-4.5 -5.5 4.5 v-62z"/>
-    <rect x="382" y="248" width="52" height="3" rx="1.5" fill="var(--ink-3)"/>
-    <rect x="382" y="257" width="40" height="3" rx="1.5" fill="var(--ink-3)"/>
-    <rect id="t-sig1" x="382" y="268" width="60" height="3" rx="1.5" fill="var(--stamp)" style="opacity:0"/>
-    <rect id="t-sig2" x="382" y="277" width="60" height="3" rx="1.5" fill="var(--stamp)" style="opacity:0"/>
-    <path id="w-receipt" class="wire" d="M372 156 V236" style="opacity:0"/>
-  </g>
-  <g id="t-packets"></g>
-</svg>`;
-
-const NS = 'http://www.w3.org/2000/svg';
-
-/** Drop a dot onto the figure and send it along a path with SMIL. */
-function travel(layer: SVGGElement, d: string, color: string, dur: number, repeat: boolean, receipt = false): void {
-  const node = document.createElementNS(NS, receipt ? 'rect' : 'circle');
-  if (receipt) {
-    node.setAttribute('width', '8');
-    node.setAttribute('height', '10');
-    node.setAttribute('x', '-4');
-    node.setAttribute('y', '-5');
-    node.setAttribute('rx', '1');
-  } else node.setAttribute('r', '4');
-  node.setAttribute('fill', color);
-  const am = document.createElementNS(NS, 'animateMotion');
-  am.setAttribute('dur', `${dur}ms`);
-  am.setAttribute('path', d);
-  am.setAttribute('repeatCount', repeat ? 'indefinite' : '1');
-  am.setAttribute('fill', 'freeze');
-  am.setAttribute('calcMode', 'spline');
-  am.setAttribute('keySplines', '0.4 0 0.2 1');
-  am.setAttribute('keyTimes', '0;1');
-  node.appendChild(am);
-  layer.appendChild(node);
-  if (!repeat) setTimeout(() => node.remove(), dur + 200);
-}
-
-const CLASSES = ['browser', 'native', 'cloud', 'external'];
-const COUNTS = [12, 4, 0, 2];
-
 export function traceSection(): HTMLElement {
-  const fig = svg(FIG);
-  const nodesG = fig.querySelector('#t-nodes')!;
-  // Build node cells. One browser cell is "the chosen one".
-  const cells: SVGRectElement[] = [];
-  CLASSES.forEach((cls, ci) => {
-    const x0 = 372 + ci * 48;
-    for (let i = 0; i < 12; i++) {
-      const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      const cx = x0 + (i % 3) * 13;
-      const cy = 70 + Math.floor(i / 3) * 13;
-      r.setAttribute('x', String(cx));
-      r.setAttribute('y', String(cy));
-      r.setAttribute('width', '10');
-      r.setAttribute('height', '10');
-      r.setAttribute('rx', '2');
-      r.setAttribute('class', 'cell' + (i < COUNTS[ci] ? '' : ' dim'));
-      r.dataset.cls = cls;
-      r.dataset.i = String(i);
-      nodesG.appendChild(r);
-      cells.push(r);
-    }
-  });
-  const chosen = cells.find((c) => c.dataset.cls === 'browser' && c.dataset.i === '4')!;
-  const q = <T extends Element>(id: string) => fig.querySelector<T>('#' + id)!;
-
+  const canvas = h('canvas', { class: 'trace-canvas', 'aria-label': 'Animated figure of a request moving from your app through the router to a machine and back as a signed receipt' });
+  const scene = new TraceScene(canvas);
   const note = h('p', { class: 'stage-note' });
-  const stage = h('div', { class: 'trace-stage' }, h('div', { class: 'card flush', style: { padding: '18px' } }, fig, note));
+  const stage = h('div', { class: 'trace-stage' }, h('div', { class: 'card flush trace-card' }, canvas, note));
 
   let active = -1;
   const stepEls: HTMLElement[] = [];
-  const packets = fig.querySelector<SVGGElement>('#t-packets')!;
   const reduced = prefersReducedMotion();
   let lastUserAction = 0;
 
@@ -126,70 +36,9 @@ export function traceSection(): HTMLElement {
     if (byUser) lastUserAction = performance.now();
     if (i === active) return;
     active = i;
-    packets.replaceChildren();
     stepEls.forEach((el, j) => el.classList.toggle('is-active', j === i));
     note.textContent = STEPS[i].note;
-
-    const on = (id: string, v: boolean) => q(id).classList.toggle('on', v);
-    const show = (id: string, v: boolean) => ((q<SVGElement>(id).style.opacity = v ? '1' : '0'));
-    const sub = (a: string, b = '') => {
-      q('t-router-sub').textContent = a;
-      q('t-router-sub2').textContent = b;
-    };
-
-    on('t-req', i === 0 || i === 7);
-    on('w-in', i === 0);
-    on('t-router', i >= 1 && i <= 3 || i === 6 || i === 7);
-    on('t-ledger', i === 1 || i === 7);
-    on('w-ledger', i === 1 || i === 7);
-    on('w-node', i === 3);
-    show('w-out', i === 7);
-    on('w-out', i === 7);
-    show('t-receipt', i >= 5);
-    show('w-receipt', i === 6);
-    on('w-receipt', i === 6);
-    show('t-sig1', i >= 5);
-    show('t-sig2', i >= 6);
-
-    cells.forEach((c) => c.classList.remove('lit'));
-    if (i === 2) cells.filter((c) => !c.classList.contains('dim') && c.dataset.cls !== 'external').forEach((c) => c.classList.add('lit'));
-    if (i >= 3 && i <= 5) chosen.classList.add('lit');
-
-    const subs: [string, string][] = [
-      ['hash input', ''],
-      ['quote', 'hold credits'],
-      ['rank candidates', 'by price'],
-      ['assign', 'lease 90 s'],
-      ['wait', ''],
-      ['wait', ''],
-      ['verify fields', 'check sig, countersign'],
-      ['charge actual', 'refund rest, pay node'],
-    ];
-    sub(...subs[i]);
-
-    if (reduced) return;
-    const chosenX = Number(chosen.getAttribute('x')) + 5;
-    const chosenY = Number(chosen.getAttribute('y')) + 5;
-    const stampBlue = 'var(--stamp)';
-    const ok = 'var(--ok)';
-    switch (i) {
-      case 0:
-        travel(packets, 'M112 156 H196', stampBlue, 1100, true);
-        break;
-      case 1:
-        travel(packets, 'M260 200 V232', stampBlue, 900, true);
-        break;
-      case 3:
-        travel(packets, `M324 156 H372 L${chosenX} ${chosenY}`, stampBlue, 1300, true);
-        break;
-      case 6:
-        travel(packets, 'M372 236 V156', ok, 1100, true, true);
-        break;
-      case 7:
-        travel(packets, 'M196 156 H112', ok, 1100, true, true);
-        travel(packets, 'M260 200 V232', ok, 900, true);
-        break;
-    }
+    scene.setStep(i);
   }
 
   // Walk through on its own until the person takes over.
