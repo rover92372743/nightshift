@@ -84,7 +84,7 @@ export function homePage(): Page {
   });
 
   // --- headline: words rise one at a time ---------------------------------
-  const words = 'GPU swarms, with receipts.'.split(' ');
+  const words = 'Rent out your GPU.'.split(' ');
   const h1 = h(
     'h1',
     { class: 'hero-title' },
@@ -107,13 +107,13 @@ export function homePage(): Page {
           h(
             'p',
             { class: 'lede reveal', 'data-delay': '2' },
-            'Businesses send batches of work to one endpoint. The router spreads them across independent GPUs, verifies what comes back, and signs a receipt for every task. The receipt on the right is the latest one on this router.',
+            'Businesses rent idle graphics cards from people like you to run and fine-tune AI models. Your card takes a task, does the work, and you get paid for it. Every task ends in a signed receipt like the one on the right.',
           ),
           h(
             'div',
             { class: 'actions reveal', 'data-delay': '3' },
-            h('a', { class: 'btn', href: '/pricing' }, 'Rent GPU capacity'),
-            h('a', { class: 'btn stamp', href: '/earn' }, 'Earn with your GPU'),
+            h('a', { class: 'btn stamp', href: '/earn' }, 'Start earning'),
+            h('a', { class: 'btn', href: '/pricing' }, 'Rent GPUs for your business'),
             testBtn,
           ),
           testNote,
