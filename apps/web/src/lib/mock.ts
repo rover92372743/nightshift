@@ -100,7 +100,7 @@ export class MockRouter {
         pricePer1k: price,
         pricePerHour: HOURLY_SUGGESTED[tier] + ((i * 13) % 20) * 1000,
         tokensPerSec: native ? 20 + vram : 6,
-        hardware: { gpu: native ? gpu : undefined, vramGb: native ? vram : undefined, tier: native ? tier : 'cpu' },
+        hardware: { gpu, vramGb: vram, tier }, // browser tabs use the GPU through WebGPU too
       });
     }
     // Two tabs with no model so compute test jobs have cheap takers.
