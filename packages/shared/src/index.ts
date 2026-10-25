@@ -1,5 +1,6 @@
 export * from './compute.js';
 export * from './node-client.js';
+export * from './bench.js';
 
 // Shared types and the receipt canonicalisation routine.
 //
@@ -146,6 +147,10 @@ export interface NodeRecord {
   jobsFailed: number;
   unitsVerified: number;
   earnedMicro: number;
+  /** What the registration benchmark measured. The tier in capabilities.hardware comes from this. */
+  benchmark?: { kind: 'webgpu' | 'cpu' | 'tokens'; score: number; tier: HardwareTier; gpu?: string; at: number };
+  /** Running measure of real output tokens per second on jobs, once there have been a few. */
+  tpsEma?: number;
 }
 
 export interface ChatMessage {

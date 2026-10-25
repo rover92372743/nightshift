@@ -3,7 +3,7 @@ import type { Ctx } from '../app.js';
 import { config } from '../config.js';
 import { nodeAuth } from '../auth.js';
 import { toPublic } from '../core/nodes.js';
-import type { JobOutput, NodeCapabilities, NodeClass, ReceiptBody } from '@nightshift/shared';
+import type { BenchResult, JobOutput, NodeCapabilities, NodeClass, ReceiptBody } from '@nightshift/shared';
 import type { Rail } from '../core/payouts.js';
 
 interface RegisterBody {
@@ -12,6 +12,7 @@ interface RegisterBody {
   publicKey: string;
   capabilities: NodeCapabilities;
   lookupOnly?: boolean;
+  benchmark?: BenchResult;
 }
 
 interface CompleteBody {
@@ -24,9 +25,15 @@ export function nodeRoutes(ctx: Ctx): FastifyPluginAsync {
   return async (app) => {
     const auth = nodeAuth(ctx.nodes);
 
+    app.post(
+      '/benchmark/ticket',
+      { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } },
+      async () => ({ ticket: ctx.nodes.issueTicket() }),
+    );
+
     app.post<{ Body: RegisterBody }>(
       '/nodes/register',
-      { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+      { config: { rateLimit: { max: 20, timeWindow: '1 hour' } } },
       async (req, reply) => {
         const b = req.body;
         if (!b?.publicKey || !/^[A-Za-z0-9_-]{43}$/.test(b.publicKey)) {
@@ -44,6 +51,7 @@ export function nodeRoutes(ctx: Ctx): FastifyPluginAsync {
             publicKey: b.publicKey,
             capabilities: b.capabilities,
             lookupOnly: Boolean(b.lookupOnly),
+            benchmark: b.benchmark,
           });
           if (!b.lookupOnly) ctx.router.dispatch();
           return { node, routerKey: ctx.routerKey.publicKey };

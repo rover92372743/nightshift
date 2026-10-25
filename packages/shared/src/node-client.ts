@@ -3,6 +3,7 @@
 // and a function that does the work.
 
 import type { JobInput, JobOutput, JobRecord, NodeCapabilities, NodeClass, NodeRecord, Receipt, ReceiptBody } from './index.js';
+import type { BenchResult, BenchTicket } from './bench.js';
 import { canonical } from './index.js';
 
 export interface Signer {
@@ -19,6 +20,8 @@ export interface NodeClientOptions {
   fetch?: typeof fetch;
   /** Read-only tools pass true so they never overwrite the running worker's settings. */
   lookupOnly?: boolean;
+  /** Result of the registration benchmark. Required for a node the router has not seen before. */
+  benchmark?: BenchResult;
 }
 
 export type WorkFn = (job: JobRecord, signal: AbortSignal) => Promise<JobOutput>;
@@ -44,6 +47,18 @@ export class NodeClient {
     this.f = opts.fetch ?? fetch.bind(globalThis);
   }
 
+  /** Ask the router for a benchmark ticket. The nonce seeds the kernel. */
+  async benchTicket(): Promise<BenchTicket> {
+    const res = await this.f(`${this.opts.baseUrl}/v1/benchmark/ticket`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error?.message ?? `ticket failed (${res.status})`);
+    return data.ticket as BenchTicket;
+  }
+
+  setBenchmark(b: BenchResult): void {
+    this.opts.benchmark = b;
+  }
+
   async register(): Promise<NodeRecord> {
     const res = await this.f(`${this.opts.baseUrl}/v1/nodes/register`, {
       method: 'POST',
@@ -54,6 +69,7 @@ export class NodeClient {
         publicKey: this.opts.signer.publicKey,
         capabilities: this.opts.capabilities,
         lookupOnly: this.opts.lookupOnly,
+        benchmark: this.opts.benchmark,
       }),
     });
     const data = await res.json();

@@ -6,6 +6,7 @@
 // and the person ticked the box. Both run in a Web Worker so the page never
 // stutters. The tab never shows task content.
 
+import type { BenchResult } from '@nightshift/shared';
 import { NodeClient, runWorker, COMPUTE_ROUNDS_PER_UNIT, type JobRecord, type Receipt, type Signer, type Workload, type HardwareTier } from '@nightshift/shared';
 import { API_BASE } from './api';
 import { WorkerHost } from '../worker/host';
@@ -102,7 +103,7 @@ class NodeRuntime {
     }
   }
 
-  async start(signer: Signer, settings: NodeSettings): Promise<void> {
+  async start(signer: Signer, settings: NodeSettings, benchmark?: BenchResult): Promise<void> {
     if (this.running) return;
     this.settings = settings;
     this.tasksThisSession = 0;
@@ -142,6 +143,7 @@ class NodeRuntime {
         tokensPerSec: this.device === 'webgpu' ? 25 : 6,
         hardware: { gpu: this.gpu.name, tier: serveModel ? this.gpu.tier : 'cpu' },
       },
+      benchmark,
     });
 
     this.abort = new AbortController();
@@ -163,7 +165,10 @@ class NodeRuntime {
       {
         status: (s, d) => {
           if (s === 'registering') this.set('registering');
-          if (s === 'idle') this.set(this.pausedReason() ? 'paused' : 'idle');
+          if (s === 'idle') {
+            this.set(this.pausedReason() ? 'paused' : 'idle');
+            markBenched(signer.publicKey);
+          }
           if (s === 'working') this.set('working', d ?? '');
           if (s === 'error') this.set('error', d ?? 'retrying');
           if (s === 'offline') this.set('off');
@@ -191,3 +196,23 @@ class NodeRuntime {
 }
 
 export const nodeRuntime = new NodeRuntime();
+
+/** Keys the router has already measured, so a returning tab can start without running the benchmark again. */
+const BENCHED = 'nightshift.benched';
+export function isBenched(publicKey: string): boolean {
+  try {
+    return (JSON.parse(localStorage.getItem(BENCHED) ?? '{}') as Record<string, number>)[publicKey] !== undefined;
+  } catch {
+    return false;
+  }
+}
+export function markBenched(publicKey: string): void {
+  try {
+    const all = JSON.parse(localStorage.getItem(BENCHED) ?? '{}') as Record<string, number>;
+    if (all[publicKey]) return;
+    all[publicKey] = Date.now();
+    localStorage.setItem(BENCHED, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}

@@ -170,7 +170,38 @@ Timestamps more than 60 seconds off the router's clock are rejected. The shared 
 }
 ```
 
-Returns `{node, routerKey}`. Registering again with the same public key is a reconnect; counters and earnings are kept. `cloud` and `external` classes are refused unless `EXTERNAL_ENABLED=true`.
+Plus, the first time a key registers, a `benchmark` (below). Returns `{node, routerKey}`. Registering again with the same public key is a reconnect; counters, earnings and the measured tier are kept. `cloud` and `external` classes are refused unless `EXTERNAL_ENABLED=true`. Twenty registrations per hour per address.
+
+### `POST /v1/benchmark/ticket`
+
+`{}` → `{ticket: {id, nonce, issuedAt}}`. Ten per hour per address; a ticket lasts ten minutes and can be used once.
+
+### The benchmark
+
+The router sets a node's hardware tier from a measurement, not from what it says about itself. The kernel is integer-only so every implementation produces the same bits:
+
+```
+x = nonce ^ i
+repeat 256 times: x = x * 1664525 + 1013904223 (mod 2^32); x ^= x >> 13
+```
+
+over 2^20 elements, run in passes until about 1.5 seconds have gone by. A browser runs it as a WebGPU compute shader (`BENCH_WGSL` in the shared package) or on the CPU when there is no WebGPU; the agent measures output tokens per second on its model server instead. The registration body then carries:
+
+```json
+"benchmark": {
+  "ticketId": "bt_…",
+  "kind": "webgpu",          // or "cpu", or "tokens" for the agent
+  "elapsedMs": 1512,
+  "passes": 184,
+  "samples": [1793423467, …], // 16 values at indices derived from the nonce
+  "gpu": "Apple M2 Max",     // display only
+  "tokensPerSec": 41.2        // kind "tokens" only
+}
+```
+
+The router re-computes the sampled elements, refuses the registration if any differ or if the run claims to have finished before the ticket was issued, burns the ticket, and maps throughput to a tier (`BENCH_TIERS`, `TOKENS_TIERS` in the shared package). `kind: "cpu"` is always the cpu tier.
+
+What it proves: that the work was done. What it does not prove: the elapsed time, which the client reports. A node that overstates its speed only changes its label and default price (routing is by price), and the router keeps an exponential average of real output tokens per second on completed jobs; after ten jobs, if that says a lower tier, the tier comes down.
 
 ### `POST /v1/nodes/:id/heartbeat`
 

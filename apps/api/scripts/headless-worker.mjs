@@ -27,7 +27,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { NodeClient, runWorker, computeTask, tierForVram, TIER_LABEL, HOURLY_SUGGESTED } from '@nightshift/shared';
+import { NodeClient, runWorker, computeTask, tierForVram, TIER_LABEL, HOURLY_SUGGESTED, runBenchCpu, sampleIndices, benchElement } from '@nightshift/shared';
 
 const baseUrl = process.env.NIGHTSHIFT_URL ?? 'http://localhost:8787';
 const llmUrl = process.env.NIGHTSHIFT_LLM_URL?.replace(/\/$/, '');
@@ -128,7 +128,44 @@ const client = new NodeClient({
   capabilities: { workloads, models: workloads.includes('llm') ? models : [], maxPromptChars: 16000, maxOutputTokens: maxOut, pricePer1k: price, pricePerHour: hourly, tokensPerSec: hw.gpu ? 40 : 8, hardware: { ...hw, tier }, region: process.env.NIGHTSHIFT_REGION || undefined },
 });
 
-console.log(`hardware: ${hw.gpu ?? 'no GPU detected'}${hw.vramGb ? ` (${hw.vramGb} GB)` : ''} → ${TIER_LABEL[tier]}, $${(hourly / 1e6).toFixed(2)}/h, ${price} µcr/1k, workloads: ${workloads.join(', ')}`);
+console.log(`hardware: ${hw.gpu ?? 'no GPU detected'}${hw.vramGb ? ` (${hw.vramGb} GB)` : ''} → claims ${TIER_LABEL[tier]}, $${(hourly / 1e6).toFixed(2)}/h, ${price} µcr/1k, workloads: ${workloads.join(', ')}`);
+
+// --- benchmark ---------------------------------------------------------------
+// The router sets the tier from a measurement, not from nvidia-smi. With a
+// model server, that measurement is output tokens per second on a short
+// generation; without one, it is the shared integer kernel on the CPU, which
+// lands in the cpu tier. Only needed the first time this key registers (or
+// with NIGHTSHIFT_REBENCH=1).
+async function benchmark() {
+  const ticket = await client.benchTicket();
+  if (workloads.includes('llm')) {
+    const t0 = Date.now();
+    const r = await fetch(`${llmUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: models[0], messages: [{ role: 'user', content: 'Count from one to one hundred in words, separated by commas.' }], max_tokens: 96, temperature: 0 }),
+    });
+    if (!r.ok) throw new Error(`model server answered ${r.status} during the benchmark`);
+    const data = await r.json();
+    const toks = data.usage?.completion_tokens ?? Math.ceil((data.choices?.[0]?.message?.content ?? '').length / 4);
+    const tokensPerSec = toks / ((Date.now() - t0) / 1000);
+    const idx = sampleIndices(ticket.nonce);
+    return { ticketId: ticket.id, kind: 'tokens', elapsedMs: Date.now() - t0, passes: 0, samples: idx.map((i) => benchElement(ticket.nonce, i)), gpu: hw.gpu, tokensPerSec };
+  }
+  const t0 = Date.now();
+  const data = runBenchCpu(ticket.nonce);
+  const elapsedMs = Date.now() - t0;
+  return { ticketId: ticket.id, kind: 'cpu', elapsedMs, passes: 1, samples: sampleIndices(ticket.nonce).map((i) => data[i]), gpu: hw.gpu };
+}
+
+const benchedFile = path.join(path.dirname(keyFile), 'benched');
+if (process.env.NIGHTSHIFT_REBENCH === '1' || !fs.existsSync(benchedFile)) {
+  process.stdout.write('benchmark: measuring… ');
+  const b = await benchmark();
+  client.setBenchmark(b);
+  console.log(b.kind === 'tokens' ? `${b.tokensPerSec.toFixed(1)} tok/s` : `${(b.elapsedMs / 1000).toFixed(1)} s on the CPU`);
+  fs.writeFileSync(benchedFile, String(Date.now()));
+}
 
 const ctrl = new AbortController();
 process.on('SIGINT', () => ctrl.abort());

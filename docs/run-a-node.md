@@ -2,6 +2,10 @@
 
 A node is anything that can register a public key, poll for work, do it, and sign a receipt. Two are included.
 
+## Measure first
+
+Every new key runs a short benchmark before the router will register it: about two seconds on the GPU through WebGPU (or the CPU when the browser has none), checked by the router, which sets the hardware tier and the default hourly price from the result. The agent does the same with a short generation on its model server. A key the router has measured once can come back without repeating it; "Measure again" on the Earn page, or `NIGHTSHIFT_REBENCH=1` for the agent, re-runs it after a hardware change. Real job timings keep the tier honest afterwards. Details in the [API](/docs/api) page.
+
 ## From a browser tab
 
 The Earn page starts a node inside the tab with nothing to install. With WebGPU (Chrome, Edge) and a graphics card it serves model tasks with a small instruct model; otherwise compute tasks. It keeps running while you move around the site, pauses on low battery, and optionally keeps working while the tab is in the background. Closing the tab stops it. The key lives in the browser's local storage, so clearing site data starts you over with a new node.
@@ -74,3 +78,4 @@ If you're in another language, the protocol is in the [API](/docs/api) page. The
 - Hold a job past its 90-second lease and the same happens. Three strikes and the job fails outright with a refund to the requester.
 - Return a compute digest that doesn't match and the job fails, your failure count goes up, and you don't get paid for it.
 - Sign a receipt that doesn't match what the router recorded and `complete` returns a 400 naming the field.
+- Claim a hardware tier your measured throughput doesn't support and, after ten jobs, the router lowers it.

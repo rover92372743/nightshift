@@ -6,8 +6,8 @@
 // Installed by preview.ts; never bundled into the real app.
 
 import nacl from 'tweetnacl';
-import type { JobInput, JobOutput, JobRecord, LiveEvent, NetworkStats, NodeCapabilities, NodeClass, PublicNode, Receipt, ReceiptBody } from '@nightshift/shared';
-import { canonical, computeTask, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, type HardwareTier, type RegionKey } from '@nightshift/shared';
+import type { JobInput, JobOutput, JobRecord, LiveEvent, NetworkStats, NodeCapabilities, NodeClass, NodeRecord, PublicNode, Receipt, ReceiptBody } from '@nightshift/shared';
+import { canonical, computeTask, verifyBench, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, type HardwareTier, type RegionKey } from '@nightshift/shared';
 
 const enc = new TextEncoder();
 function b64u(bytes: Uint8Array): string {
@@ -54,6 +54,7 @@ interface MNode {
   simulated: boolean;
   lastSeen: number;
   uptime: number;
+  bench?: NodeRecord['benchmark'];
   payouts: { id: string; status: string; rail: string; amountMicro: number; createdAt: number }[];
 }
 
@@ -74,6 +75,7 @@ export class MockRouter {
   private t0 = Date.now();
   private keys = new Map<string, { id: string; key: string; label: string; createdAt: number }>();
   private quotes: { id: string; company: string; email: string; need: string; createdAt: number }[] = [];
+  private tickets = new Map<string, { id: string; nonce: number; issuedAt: number; used: boolean }>();
   private batches = new Map<string, { id: string; label: string | null; total: number; createdAt: number; jobIds: string[] }>();
   private batchSummary(bt: { id: string; label: string | null; total: number; createdAt: number; jobIds: string[] }) {
     const counts = { queued: 0, assigned: 0, running: 0, done: 0, failed: 0, cancelled: 0 } as Record<string, number>;
@@ -499,10 +501,30 @@ export class MockRouter {
     }
 
     // nodes (the Earn page's own node talks to these)
+    if (path === '/v1/benchmark/ticket') {
+      const ticket = { id: id('bt'), nonce: Math.floor(Math.random() * 0xffffffff) >>> 0, issuedAt: Date.now() };
+      this.tickets.set(ticket.id, { ...ticket, used: false });
+      return { status: 200, body: { ticket } };
+    }
     if (path === '/v1/nodes/register') {
       if (b.class === 'cloud' || b.class === 'external') return { status: 403, body: err('cloud and external node classes are disabled on this router') };
       let n = Array.from(this.nodes.values()).find((q) => q.pk === b.publicKey);
       if (b.lookupOnly) return n ? { status: 200, body: { node: this.rec(n), routerKey: this.routerKey } } : { status: 400, body: err('no node registered with this key; run the worker first') };
+      let bench: MNode['bench'] | undefined;
+      if (b.benchmark) {
+        const tk = this.tickets.get(String(b.benchmark.ticketId));
+        if (!tk) return { status: 400, body: err('unknown benchmark ticket') };
+        if (tk.used) return { status: 400, body: err('benchmark ticket already used') };
+        try {
+          const v = verifyBench(tk, b.benchmark, Date.now());
+          tk.used = true;
+          bench = { kind: b.benchmark.kind, score: v.score, tier: v.tier, gpu: b.benchmark.gpu, at: Date.now() };
+        } catch (e) {
+          return { status: 400, body: err((e as Error).message) };
+        }
+      } else if (n) bench = n.bench;
+      else return { status: 400, body: err('benchmark required: fetch a ticket from /v1/benchmark/ticket, run it, and register with the result') };
+      if (bench && b.capabilities) b.capabilities = { ...b.capabilities, hardware: { ...(b.capabilities.hardware ?? {}), tier: bench.tier, gpu: b.capabilities.hardware?.gpu ?? bench.gpu }, pricePerHour: b.capabilities.pricePerHour ?? HOURLY_SUGGESTED[bench.tier] };
       if (!n) {
         n = { id: id('nd'), cls: b.class ?? 'browser', label: String(b.label ?? 'unnamed').slice(0, 48), pk: b.publicKey, caps: { ...b.capabilities, pricePer1k: Math.max(PRICE_FLOOR_PER_1K, Number(b.capabilities?.pricePer1k ?? PRICE_FLOOR_PER_1K)) }, status: 'online', jobsDone: 0, jobsFailed: 0, units: 0, earned: 0, balance: 0, simulated: false, lastSeen: Date.now(), uptime: 0, payouts: [] };
         this.nodes.set(n.id, n);
@@ -511,6 +533,7 @@ export class MockRouter {
         n.label = b.label;
         n.caps = b.capabilities;
       }
+      n.bench = bench;
       this.emit({ t: 'node.up', node: this.pub(n) });
       setTimeout(() => this.dispatch(), 200);
       return { status: 200, body: { node: this.rec(n), routerKey: this.routerKey } };
@@ -568,7 +591,7 @@ export class MockRouter {
   }
 
   private rec(n: MNode) {
-    return { id: n.id, class: n.cls, label: n.label, publicKey: n.pk, capabilities: n.caps, status: n.status, lastSeen: n.lastSeen, createdAt: n.lastSeen, jobsDone: n.jobsDone, jobsFailed: n.jobsFailed, unitsVerified: n.units, earnedMicro: n.earned };
+    return { id: n.id, class: n.cls, label: n.label, publicKey: n.pk, capabilities: n.caps, status: n.status, lastSeen: n.lastSeen, createdAt: n.lastSeen, jobsDone: n.jobsDone, jobsFailed: n.jobsFailed, unitsVerified: n.units, earnedMicro: n.earned, benchmark: n.bench };
   }
 }
 

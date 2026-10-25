@@ -12,7 +12,7 @@ login ns_…
 
 The key is kept in this tab only (session storage) and is gone when the tab closes. Anonymous visitors get a small trial allowance by cookie, so the console works without signing in; it just won't get far.
 
-Need a key? `key new my-label` mints one. It starts at zero credit, so the next step is asking the operator to add some (or, once a payment rail is wired, paying).
+Keys are not self-serve. The sign-in screen has a request form (company, email, what you want to run); the operator mints a key with `keys new` and sends it over a channel they trust. Nothing on the console is shown until a key or the operator key checks out.
 
 ## Sending a task
 
@@ -37,6 +37,19 @@ receipt rcpt_9f…  ·  type "receipt rcpt_9f…" to verify
 ```
 
 The hold is the quote; the charge is what was used. The difference comes straight back.
+
+## Batches
+
+The "Send a batch" panel takes a file: plain text with one prompt per line (all sent to the model and token limit you pick), or JSONL with one full job input per line when you need control over each item. Up to 500 items. The whole batch is held for in one transaction, so if the balance can't cover all of it nothing is queued.
+
+Progress shows in the terminal as a bar and updates until every item has finished. Then:
+
+```
+batches                     your batches with done/failed/pending counts
+batch <id>                  one batch; keeps watching if it's still running
+batch <id> results          every item with its output, in the terminal
+results <id>                download the batch as JSONL (one object per item: prompt, output, units, cost, receipt id)
+```
 
 ## Reading back
 

@@ -4,6 +4,13 @@
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS bench_tickets (
+  id        TEXT PRIMARY KEY,
+  nonce     INTEGER NOT NULL,
+  issued_at INTEGER NOT NULL,
+  used_at   INTEGER
+);
+
 CREATE TABLE IF NOT EXISTS batches (
   id           TEXT PRIMARY KEY,
   requester_id TEXT NOT NULL,

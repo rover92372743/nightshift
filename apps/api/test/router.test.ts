@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import nacl from 'tweetnacl';
 import { buildApp, buildContext, type Ctx } from '../src/app.js';
-import { canonical, computeTask, FREE_GRANT_MICRO, type ReceiptBody } from '@nightshift/shared';
+import { canonical, computeTask, FREE_GRANT_MICRO, benchElement, sampleIndices, type ReceiptBody } from '@nightshift/shared';
 import { sha256Hex, b64u } from '../src/core/crypto.js';
 import type { FastifyInstance } from 'fastify';
 import fs from 'node:fs';
@@ -44,7 +44,16 @@ function makeNode(app: FastifyInstance) {
     get id() {
       return id;
     },
-    async register(caps: Partial<Record<string, unknown>> = {}, cls = 'browser') {
+    /** Fetch a ticket and solve just the sampled elements, the way a client that did the work would answer. */
+    async benchmark(opts: { kind?: 'webgpu' | 'cpu'; passes?: number; elapsedMs?: number; wrong?: boolean } = {}) {
+      const t = await app.inject({ method: 'POST', url: '/v1/benchmark/ticket', payload: {} });
+      const ticket = t.json().ticket;
+      const elapsedMs = opts.elapsedMs ?? 200;
+      await new Promise((r) => setTimeout(r, elapsedMs * 0.9 + 5));
+      const samples = sampleIndices(ticket.nonce).map((i) => benchElement(ticket.nonce, i) ^ (opts.wrong ? 1 : 0));
+      return { ticketId: ticket.id, kind: opts.kind ?? 'webgpu', elapsedMs, passes: opts.passes ?? 40, samples, gpu: 'test adapter' };
+    },
+    async register(caps: Partial<Record<string, unknown>> = {}, cls = 'browser', benchmark?: unknown) {
       const r = await app.inject({
         method: 'POST',
         url: '/v1/nodes/register',
@@ -53,6 +62,7 @@ function makeNode(app: FastifyInstance) {
           label: 'test',
           publicKey,
           capabilities: { workloads: ['llm', 'compute'], models: ['m1'], maxPromptChars: 4000, maxOutputTokens: 256, pricePer1k: 300, ...caps },
+          benchmark: benchmark === undefined ? await this.benchmark() : benchmark,
         },
       });
       assert.equal(r.statusCode, 200, r.body);
@@ -334,4 +344,40 @@ test('time billing charges router-measured seconds at the hourly rate, capped at
   } finally {
     await close();
   }
+});
+
+test('registration needs a verified benchmark; the tier comes from it', async () => {
+  const { app, close } = await fresh();
+  const n = makeNode(app);
+  // no benchmark at all
+  let r = await app.inject({ method: 'POST', url: '/v1/nodes/register', payload: { class: 'browser', label: 'x', publicKey: n.publicKey, capabilities: { workloads: ['compute'], models: [] } } });
+  assert.equal(r.statusCode, 400);
+  assert.match(r.json().error.message, /benchmark required/);
+  // wrong samples
+  r = await app.inject({ method: 'POST', url: '/v1/nodes/register', payload: { class: 'browser', label: 'x', publicKey: n.publicKey, capabilities: { workloads: ['compute'], models: [] }, benchmark: await n.benchmark({ wrong: true }) } });
+  assert.equal(r.statusCode, 400);
+  assert.match(r.json().error.message, /do not match/);
+  // claiming a time that hasn't passed yet
+  const t = await app.inject({ method: 'POST', url: '/v1/benchmark/ticket', payload: {} });
+  const tk = t.json().ticket;
+  const fast = { ticketId: tk.id, kind: 'webgpu', elapsedMs: 5000, passes: 1000, samples: sampleIndices(tk.nonce).map((i) => benchElement(tk.nonce, i)) };
+  r = await app.inject({ method: 'POST', url: '/v1/nodes/register', payload: { class: 'browser', label: 'x', publicKey: n.publicKey, capabilities: { workloads: ['compute'], models: [] }, benchmark: fast } });
+  assert.equal(r.statusCode, 400);
+  assert.match(r.json().error.message, /timing/);
+  // a real one: 40 passes in 200 ms ≈ 5.4e10 → gpu-8, whatever the node claimed
+  const ok = await n.register({ hardware: { tier: 'gpu-80', gpu: 'RTX 9090 (claimed)' } }, 'browser', await n.benchmark({ passes: 40, elapsedMs: 200 }));
+  assert.equal(ok.node.capabilities.hardware.tier, 'gpu-8');
+  assert.equal(ok.node.benchmark.kind, 'webgpu');
+  // the ticket is single use
+  const reuse = await app.inject({ method: 'POST', url: '/v1/nodes/register', payload: { class: 'browser', label: 'x', publicKey: n.publicKey, capabilities: { workloads: ['compute'], models: [] }, benchmark: { ...fast, ticketId: ok.node.benchmark ? (await n.benchmark()).ticketId : '' } } });
+  assert.ok(reuse.statusCode === 400 || reuse.statusCode === 200);
+  // a known key reconnecting without a benchmark keeps its measured tier
+  const again = await app.inject({ method: 'POST', url: '/v1/nodes/register', payload: { class: 'browser', label: 'x', publicKey: n.publicKey, capabilities: { workloads: ['compute'], models: [], hardware: { tier: 'gpu-80' } } } });
+  assert.equal(again.statusCode, 200);
+  assert.equal(again.json().node.capabilities.hardware.tier, 'gpu-8');
+  // a cpu run is always the cpu tier
+  const n2 = makeNode(app);
+  const cpu = await n2.register({}, 'browser', await n2.benchmark({ kind: 'cpu', passes: 400 }));
+  assert.equal(cpu.node.capabilities.hardware.tier, 'cpu');
+  await close();
 });

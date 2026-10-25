@@ -321,6 +321,7 @@ export class Router {
       if (refund > 0) this.ledger.post(job.requesterId, refund, 'refund', job.id);
       this.ledger.post(this.nodes.accountId(nodeId), settledMicro, 'earn', job.id);
       this.nodes.recordDone(nodeId, units, settledMicro);
+      if (job.input.workload === 'llm') this.nodes.observeThroughput(nodeId, output.outputTokens ?? 0, output.durationMs ?? 0);
       this.db
         .prepare(
           `INSERT INTO receipts (id, job_id, body, node_sig, router_sig, node_key, router_key, created_at)

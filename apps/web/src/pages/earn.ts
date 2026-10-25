@@ -7,7 +7,9 @@
 // handy for trying the flow before installing anything.
 
 import { NodeClient, TIER_LABEL, PAYOUT_MIN_MICRO, type JobRecord, type Signer } from '@nightshift/shared';
-import { nodeRuntime, type NodeSettings } from '../lib/noderuntime';
+import { nodeRuntime, isBenched, type NodeSettings } from '../lib/noderuntime';
+import { runBenchmark, fmtScore, type BenchOutcome } from '../lib/bench';
+import { HOURLY_SUGGESTED, type BenchResult } from '@nightshift/shared';
 import { h, clear, fmtMs, mountReveals, timeHM, copyText, isPreview, fmtPerM } from '../lib/dom';
 import { API_BASE } from '../lib/api';
 import { loadOrCreateNodeKey, importNodeKey } from '../lib/keys';
@@ -133,7 +135,57 @@ export function earnPage(): Page {
   const serveModel = h('input', { type: 'checkbox', checked: prefs.serveModel, id: 'n-model' }) as HTMLInputElement;
   const background = h('input', { type: 'checkbox', checked: prefs.background, id: 'n-bg' }) as HTMLInputElement;
   const modelLabel = h('span', null, 'Serve model tasks on this GPU (WebGPU)');
-  const startBtn = h('button', { class: 'btn stamp' }, 'Start earning') as HTMLButtonElement;
+  // --- the benchmark: measure first, then you may start ------------------------
+  // The router will not register a key it has never measured. Once it has,
+  // the tab can come back without running it again; "Measure again" re-runs.
+  let benchResult: BenchResult | undefined;
+  const benchBtn = h('button', { class: 'btn stamp' }, 'Measure this device') as HTMLButtonElement;
+  const benchBar = h('div', { class: 'bar', hidden: true }, h('i'));
+  const benchOut = h('div', { class: 'bench-out', hidden: true });
+  const benchNote = h('p', { class: 'small muted' }, 'A 2-second test on your GPU (or CPU if the browser has no WebGPU). The router checks the result and sets your hardware tier from what it measured, not what the browser reports.');
+  function paintBench(o: BenchOutcome | null): void {
+    benchOut.hidden = !o;
+    if (!o) return;
+    const hourly = HOURLY_SUGGESTED[o.tier];
+    benchOut.replaceChildren(
+      h('div', { class: 'bench-row' }, h('span', { class: 'bench-k' }, 'tier'), h('b', null, TIER_LABEL[o.tier])),
+      h('div', { class: 'bench-row' }, h('span', { class: 'bench-k' }, 'measured'), h('span', null, `${fmtScore(o.score)} · ${o.result.kind === 'webgpu' ? 'WebGPU' : 'CPU'}${o.gpu ? ` · ${o.gpu}` : ''}`)),
+      h('div', { class: 'bench-row' }, h('span', { class: 'bench-k' }, 'suggested'), h('span', null, `$${(hourly / 1e6).toFixed(2)} per card-hour`)),
+      h('p', { class: 'small muted', style: { margin: '6px 0 0' } }, o.tier === 'cpu' ? 'No usable GPU was found, so this tab will take compute tasks only. Chrome or Edge on a machine with a graphics card measures higher.' : 'Checked by the router when you start. Real job timings keep the tier honest after that.'),
+    );
+  }
+  async function measure(): Promise<void> {
+    benchBtn.disabled = true;
+    benchBar.hidden = false;
+    benchOut.hidden = true;
+    (benchBar.firstElementChild as HTMLElement).style.width = '0%';
+    try {
+      const probe = new NodeClient({ baseUrl: API_BASE, signer: key, class: 'browser', label: 'probe', capabilities: { workloads: ['compute'], models: [], maxPromptChars: 0, maxOutputTokens: 0, pricePer1k: 0 } });
+      const ticket = await probe.benchTicket();
+      const o = await runBenchmark(ticket, (phase, f) => {
+        (benchBar.firstElementChild as HTMLElement).style.width = `${Math.round((phase === 'reading' ? 1 : f) * 100)}%`;
+      });
+      benchResult = o.result;
+      paintBench(o);
+      startBtn.disabled = nodeRuntime.running;
+      benchBtn.textContent = 'Measure again';
+    } catch (e) {
+      benchNote.textContent = `Could not run the benchmark: ${(e as Error).message}`;
+    } finally {
+      benchBtn.disabled = false;
+      benchBar.hidden = true;
+    }
+  }
+  benchBtn.addEventListener('click', () => void measure());
+  const benchCard = h('div', { class: 'bench' }, h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'center' } }, h('b', null, 'Step 1 · Measure'), benchBtn), benchNote, benchBar, benchOut);
+
+  const startBtn = h('button', { class: 'btn stamp', disabled: true }, 'Start earning') as HTMLButtonElement;
+  if (isBenched(key.publicKey)) {
+    benchBtn.textContent = 'Measure again';
+    benchNote.textContent = 'This key has been measured before; the router remembers the tier. Measure again if the hardware changed.';
+    startBtn.disabled = false;
+  }
+
   const stopBtn = h('button', { class: 'btn secondary', disabled: true }, 'Stop') as HTMLButtonElement;
   const statusEl = h('div', { class: 'status' }, h('i'), h('span', null, 'Not running'));
   const statusNote = h('p', { class: 'small muted' }, 'Nothing to install. Press start and this tab registers as a node and takes work while it is open.');
@@ -170,7 +222,11 @@ export function earnPage(): Page {
     progress.hidden = !nodeRuntime.progress;
     if (nodeRuntime.progress) (progress.firstElementChild as HTMLElement).style.width = nodeRuntime.progress.total ? `${(nodeRuntime.progress.loaded / nodeRuntime.progress.total) * 100}%` : '0%';
     const running = nodeRuntime.running;
-    startBtn.disabled = running;
+    startBtn.disabled = running || (!benchResult && !isBenched(key.publicKey));
+    if (!running && nodeRuntime.client?.node?.benchmark && benchOut.hidden) {
+      const bm = nodeRuntime.client.node.benchmark;
+      paintBench({ result: { ticketId: '', kind: bm.kind, elapsedMs: 0, passes: 0, samples: [] }, score: bm.score, tier: bm.tier, gpu: bm.gpu });
+    }
     stopBtn.disabled = !running;
     [label, price, serveModel, background].forEach((i) => (i.disabled = running || (i === serveModel && !nodeRuntime.gpu.available && !running)));
     if (running) void refreshMe();
@@ -179,7 +235,9 @@ export function earnPage(): Page {
   startBtn.addEventListener('click', () => {
     const p: Prefs = { label: label.value.trim() || defaultLabel(), price: Math.round((Number(price.value) || 0.25) * 1000), serveModel: serveModel.checked, background: background.checked, maxOut: 192 };
     savePrefs(p);
-    void nodeRuntime.start(key, p);
+    const b = benchResult;
+    benchResult = undefined; // a ticket is single use; the router keeps the measurement
+    void nodeRuntime.start(key, p, b);
   });
   stopBtn.addEventListener('click', () => nodeRuntime.stop());
 
@@ -230,6 +288,8 @@ export function earnPage(): Page {
           statusNote,
           progress,
           gpuLine,
+          benchCard,
+          h('b', { class: 'small' }, 'Step 2 · Start'),
           h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Node name on the map'), label), h('label', { class: 'field' }, h('span', null, 'Your price, $ per 1M tokens'), price)),
           h('label', { class: 'row' }, serveModel, modelLabel),
           h('label', { class: 'row' }, background, h('span', null, 'Keep working when this tab is in the background')),
