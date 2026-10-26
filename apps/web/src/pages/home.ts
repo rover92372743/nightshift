@@ -182,25 +182,27 @@ const NIGHT_CONTRACT: string = ((import.meta.env.VITE_NIGHT_CONTRACT as string |
 
 function tokenBox(): HTMLElement {
   const addr = NIGHT_CONTRACT;
-  const short = addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : 'Contract address coming soon';
-  const copy = h('button', { class: 'token-copy', title: addr ? 'Copy contract address' : 'Not live yet', disabled: !addr, 'aria-label': 'Copy contract address' }, h('span', { class: 'token-copy-ic' }));
-  const addrEl = h('span', { class: `token-addr ${addr ? '' : 'pending'}`, title: addr }, short);
+  const short = addr ? `${addr.slice(0, 8)}…${addr.slice(-6)}` : 'CONTRACT ADDRESS COMING SOON';
+  const addrEl = h('span', { class: `token-addr ${addr ? '' : 'pending'}`, title: addr }, short, addr ? null : h('i', { class: 'token-cursor' }));
+  const copy = h('button', { class: 'btn sm secondary token-copy', disabled: !addr, 'aria-label': 'Copy contract address' }, 'Copy');
   copy.addEventListener('click', () => {
     void copyText(addr).then(() => {
-      addrEl.textContent = 'Copied';
-      setTimeout(() => (addrEl.textContent = short), 1200);
+      copy.textContent = 'Copied';
+      setTimeout(() => (copy.textContent = 'Copy'), 1200);
     });
   });
+  const ic = svg(tokenMark);
+  ic.classList.add('token-ic');
+  ic.setAttribute('aria-hidden', 'true');
   return h(
     'div',
     { class: 'token-box reveal', 'data-delay': '4' },
-    (() => {
-      const ic = svg(tokenMark);
-      ic.classList.add('token-ic');
-      ic.setAttribute('aria-hidden', 'true');
-      return ic;
-    })(),
-    h('div', { class: 'token-meta' }, h('b', null, '$NIGHT'), h('span', { class: `token-state ${addr ? 'live' : ''}` }, h('i'), addr ? 'Official contract' : 'Not launched')),
-    h('div', { class: 'token-addr-wrap' }, addrEl, copy),
+    h('div', { class: 'token-stub' }, ic),
+    h(
+      'div',
+      { class: 'token-body' },
+      h('div', { class: 'token-line' }, h('span', { class: 'token-k' }, 'TOKEN'), h('b', null, '$NIGHT'), h('span', { class: `token-state ${addr ? 'live' : ''}` }, addr ? 'LIVE' : 'COMING SOON')),
+      h('div', { class: 'token-line' }, h('span', { class: 'token-k' }, 'CA'), addrEl, addr ? copy : null),
+    ),
   );
 }
