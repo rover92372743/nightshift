@@ -615,19 +615,19 @@ export function consolePage(): Page {
   }
 
   // --- sign-in gate: nothing is shown until a key or the admin key checks out ----------
-  const gKey = h('input', { class: 'input', type: 'password', placeholder: 'ns_… or the operator key', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
+  const gKey = h('input', { class: 'input', type: 'password', placeholder: 'ns_…', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
   const gBtn = h('button', { class: 'btn stamp' }, 'Sign in') as HTMLButtonElement;
   const gErr = h('p', { class: 'small', style: { color: '#ff7b7b', minHeight: '1.2em' } });
   const rCompany = h('input', { class: 'input', type: 'text', placeholder: 'Company', maxlength: 120 }) as HTMLInputElement;
   const rEmail = h('input', { class: 'input', type: 'email', placeholder: 'you@company.com', maxlength: 200 }) as HTMLInputElement;
-  const rNeed = h('textarea', { class: 'input', rows: 3, placeholder: 'What you want to run, roughly how much, and when.' }) as HTMLTextAreaElement;
-  const rBtn = h('button', { class: 'btn secondary' }, 'Request access') as HTMLButtonElement;
+  const rNeed = h('textarea', { class: 'input', rows: 3, placeholder: 'What you want to run' }) as HTMLTextAreaElement;
+  const rBtn = h('button', { class: 'btn secondary' }, 'Send request') as HTMLButtonElement;
   const rMsg = h('p', { class: 'small muted' });
   rBtn.addEventListener('click', async () => {
     rBtn.disabled = true;
     try {
       await api.access({ company: rCompany.value.trim(), email: rEmail.value.trim(), need: rNeed.value.trim() });
-      rMsg.textContent = 'Got it. Keys are issued by hand; you will hear back by email.';
+      rMsg.textContent = 'Received. We will be in touch.';
       rCompany.value = rEmail.value = rNeed.value = '';
     } catch (e) {
       rMsg.textContent = errText(e);
@@ -645,17 +645,16 @@ export function consolePage(): Page {
       h(
         'div',
         { style: { padding: '18px 16px', display: 'grid', gap: '12px' } },
-        h('p', { class: 'small', style: { color: '#9aa7b8', margin: 0 } }, 'Access is by key. If you have one, paste it. It stays in this tab and is forgotten when the tab closes.'),
+        h('p', { class: 'small', style: { color: '#9aa7b8', margin: 0 } }, 'Paste your key.'),
         h('div', { class: 'row' }, gKey, gBtn),
         gErr,
-        isPreview() ? h('p', { class: 'small', style: { color: '#7d8aa0', margin: 0 } }, 'Preview: sign in with admin-preview, then mint a business key with "keys new".') : null,
+        isPreview() ? h('p', { class: 'small', style: { color: '#7d8aa0', margin: 0 } }, 'Preview key: admin-preview') : null,
       ),
     ),
     h(
       'div',
       { class: 'card', style: { display: 'grid', gap: '12px', alignSelf: 'start' } },
-      h('h3', null, "Don't have a key?"),
-      h('p', { class: 'small muted' }, 'Keys are issued by hand, per business. Tell us what you want to run and we will set one up with an opening balance.'),
+      h('h3', null, 'Request access'),
       h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Company'), rCompany), h('label', { class: 'field' }, h('span', null, 'Email'), rEmail)),
       h('label', { class: 'field' }, h('span', null, 'What you need'), rNeed),
       h('div', { class: 'row' }, rBtn),
@@ -714,7 +713,7 @@ export function consolePage(): Page {
   dim('type "help" for commands, or use the panels. ↑ recalls history.');
   paintSign();
 
-  const keyLink = h('a', { href: '/docs/console' }, 'Console guide');
+  const keyLink = h('a', { href: '/docs/console' }, 'Guide');
   const el = h(
     'div',
     { class: 'page console-page' },
@@ -724,7 +723,7 @@ export function consolePage(): Page {
       h(
         'div',
         { class: 'container' },
-        h('div', { class: 'section-head reveal' }, h('h1', null, 'Console'), h('p', null, 'Where work gets sent. Sign in with your key, type a task or fill the form, and watch it land on a machine. Every finished task comes back with a signed receipt. ', keyLink, '.')),
+        h('div', { class: 'section-head reveal' }, h('h1', null, 'Console'), h('p', null, 'Send work, watch it run, keep the receipts. ', keyLink, '.')),
         gate,
         h(
           'div',

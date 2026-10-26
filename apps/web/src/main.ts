@@ -137,7 +137,7 @@ function topbar(): void {
       h(
         'div',
         { class: 'footer-top' },
-        h('span', null, 'Nightshift. Credits are a unit of account on this router, not a currency.'),
+        h('span', null, `© ${new Date().getFullYear()} Nightshift Ltd.`),
         h(
           'nav',
           null,
@@ -149,14 +149,7 @@ function topbar(): void {
           h('a', { href: '/receipts' }, 'Verify a receipt'),
         ),
       ),
-      h(
-        'p',
-        { class: 'footer-legal' },
-        'Earnings depend on your hardware, your uptime and the work businesses send; nothing here is a promise of income. ',
-        '$NIGHT, if and when it launches, is a utility token for this network: it is not a share, a security, or a promise of return, and it may lose value. ',
-        'Payouts in USDC are made to the Solana address you give; blockchain transfers cannot be reversed, so check it. ',
-        'Nothing on this site is financial, legal or tax advice.',
-      ),
+      h('p', { class: 'footer-legal' }, 'Nothing on this site is investment advice.'),
     ),
   );
 }
