@@ -259,6 +259,23 @@ img, svg, canvas { display: block; max-width: 100%; }
 .hero .lede { font-size: clamp(1.08rem, 1.5vw, 1.25rem); color: var(--ink-2); margin-top: 22px; max-width: 44ch; }
 .hero .actions { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
 .hero .test-note { display: block; margin-top: 10px; min-height: 1.4em; }
+.token-box { margin-top: 22px; display: grid; grid-template-columns: 40px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--rule); border-radius: 12px; background: var(--receipt); max-width: 520px; }
+.token-ic { width: 40px; height: 40px; border-radius: 50%; }
+.token-meta { display: grid; gap: 2px; min-width: 0; }
+.token-meta b { font-size: 1.02rem; letter-spacing: 0.01em; }
+.token-state { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.token-state i { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+.token-state.live { color: var(--ok); }
+.token-state.live i { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.token-addr-wrap { display: flex; align-items: center; gap: 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper-2); overflow: hidden; }
+.token-addr { font-family: var(--mono); font-size: 0.82rem; padding: 7px 10px; color: var(--ink); white-space: nowrap; }
+.token-addr.pending { color: var(--ink-3); }
+.token-copy { border: 0; border-left: 1px solid var(--rule); background: transparent; width: 34px; height: 32px; display: grid; place-items: center; cursor: pointer; color: var(--ink-2); }
+.token-copy:disabled { cursor: default; opacity: 0.4; }
+.token-copy:not(:disabled):hover { background: var(--paper); color: var(--ink); }
+.token-copy-ic { width: 12px; height: 12px; border: 1.5px solid currentColor; border-radius: 2px; position: relative; }
+.token-copy-ic::after { content: ''; position: absolute; left: 3px; top: 3px; width: 12px; height: 12px; border: 1.5px solid currentColor; border-radius: 2px; background: var(--receipt); }
+@media (max-width: 560px) { .token-box { grid-template-columns: 40px 1fr; } .token-addr-wrap { grid-column: 1 / -1; } }
 .hero-receipt { justify-self: end; width: min(100%, 380px); }
 .hero .caption { margin-top: 14px; font-size: 0.9rem; color: var(--ink-2); text-align: center; min-height: 1.4em; }
 .field-tip { position: fixed; z-index: 30; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--rule); font-size: 12px; padding: 5px 9px; border-radius: 6px; pointer-events: none; white-space: nowrap; }

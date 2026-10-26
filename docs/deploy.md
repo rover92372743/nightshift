@@ -63,7 +63,9 @@ If the site lives on a static host instead, build it with the API origin baked i
 VITE_API_URL=https://api.nightshift.example npm run build -w apps/web
 ```
 
-and set `CORS_ORIGINS` on the API to the site's origin. The cookie-based anonymous session then relies on `SameSite=Lax` plus `credentials: 'include'`, which works across subdomains of one site and not across unrelated domains. For unrelated domains, use API keys.
+Add `VITE_NIGHT_CONTRACT=<mint address>` to the same build once the token exists; the $NIGHT box on the home page shows "coming soon" until it is set.
+
+Set `CORS_ORIGINS` on the API to the site's origin. The cookie-based anonymous session then relies on `SameSite=Lax` plus `credentials: 'include'`, which works across subdomains of one site and not across unrelated domains. For unrelated domains, use API keys.
 
 ## Operating it
 

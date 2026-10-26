@@ -1,5 +1,6 @@
 import type { LiveEvent, NetworkStats } from '@nightshift/shared';
-import { h, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtUsd, fmtPerM, isPreview } from '../lib/dom';
+import { h, svg, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtUsd, fmtPerM, isPreview, copyText } from '../lib/dom';
+import tokenMark from '../../public/night-token.svg?raw';
 import { live } from '../lib/live';
 import { api, ApiError } from '../lib/api';
 import { receiptEl, sampleReceipt, tilt } from '../lib/receipt';
@@ -117,6 +118,7 @@ export function homePage(): Page {
             testBtn,
           ),
           testNote,
+          tokenBox(),
         ),
         h('div', { class: 'hero-receipt reveal', 'data-delay': '3' }, printer, caption),
       ),
@@ -169,4 +171,36 @@ export function homePage(): Page {
       stopReveal();
     },
   };
+}
+
+/**
+ * The $NIGHT contract box. The address is empty until the token exists; set
+ * VITE_NIGHT_CONTRACT at build time (or the window override below for the
+ * preview) and the box shows it with a copy button. Until then it says so.
+ */
+const NIGHT_CONTRACT: string = ((import.meta.env.VITE_NIGHT_CONTRACT as string | undefined) ?? '').trim();
+
+function tokenBox(): HTMLElement {
+  const addr = NIGHT_CONTRACT;
+  const short = addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : 'Contract address coming soon';
+  const copy = h('button', { class: 'token-copy', title: addr ? 'Copy contract address' : 'Not live yet', disabled: !addr, 'aria-label': 'Copy contract address' }, h('span', { class: 'token-copy-ic' }));
+  const addrEl = h('span', { class: `token-addr ${addr ? '' : 'pending'}`, title: addr }, short);
+  copy.addEventListener('click', () => {
+    void copyText(addr).then(() => {
+      addrEl.textContent = 'Copied';
+      setTimeout(() => (addrEl.textContent = short), 1200);
+    });
+  });
+  return h(
+    'div',
+    { class: 'token-box reveal', 'data-delay': '4' },
+    (() => {
+      const ic = svg(tokenMark);
+      ic.classList.add('token-ic');
+      ic.setAttribute('aria-hidden', 'true');
+      return ic;
+    })(),
+    h('div', { class: 'token-meta' }, h('b', null, '$NIGHT'), h('span', { class: `token-state ${addr ? 'live' : ''}` }, h('i'), addr ? 'Official contract' : 'Not launched')),
+    h('div', { class: 'token-addr-wrap' }, addrEl, copy),
+  );
 }
