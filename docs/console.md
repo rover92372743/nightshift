@@ -78,6 +78,18 @@ all                            last 50 tasks across every account, content hidde
 
 Without the environment variable the `/v1/admin` routes answer 404, so a router that was never configured for it exposes nothing. The admin key is compared in constant time and is never written to the database.
 
+## Payout review (operator)
+
+In operator mode the console shows a **Payout requests** panel. Each request lists the requester, their Solana address, the amount, their balance after the hold, lifetime earnings and tasks, prior requests, and whether the address is shared with other accounts. Send the USDC from the treasury wallet, paste the transaction signature, press **Mark sent**; or **Reject** with a reason, which returns the credits. The same from the terminal:
+
+```
+payouts                       the queue, pending first
+approve po_… <tx signature>   record the transfer
+reject po_… [reason]          decline; credits go back
+```
+
+The router only accepts requests when the account balance is $15 or more, and never sends anything itself.
+
 ## From code
 
 Everything the console does is the public API with a bearer token. The [API](/docs/api) page has the curl, and `POST /v1/chat/completions` works with any OpenAI-compatible client by changing the base URL.

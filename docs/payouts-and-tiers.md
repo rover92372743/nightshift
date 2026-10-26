@@ -4,37 +4,18 @@ This page is about the parts that are deliberately not finished, so that nobody 
 
 ## Payouts
 
-A node's earnings sit in its ledger account as credits. There are three things a node can ask for.
+Payouts are USDC on Solana, and every one is approved by a person. The router never holds a private key or talks to a chain.
 
-| Rail | What happens | Status |
-|---|---|---|
-| `credits` | Nothing. Credits are already spendable on inference. Returns `sent` immediately. | Works |
-| `usdc` | From $15. Debits the credits, records a payout row as `pending`, returns it. | Stub |
-| `sol` | From $15. Same as above. | Stub |
+The flow:
 
-For the two chain rails, the router validates the address shape (base58, 32–44 characters), debits the amount so it can't be double-spent, and then calls a `PayoutAdapter`. The adapter that ships is `ManualAdapter`, which throws `PayoutPending` and leaves the row for a human. There is no signer, no treasury and no RPC connection in this codebase. If you tell people they'll get paid in USDC, you are promising to go settle those rows yourself.
+1. A node asks (`POST /v1/nodes/:id/payouts` with `amountMicro` and a Solana `address`). The router checks: valid base58 address, balance ≥ $15, amount ≥ $15 and ≤ balance, no other request pending for that account. The amount is debited at once so it cannot be spent twice, and a `payouts` row is written as `pending`.
+2. The operator opens the console in operator mode. The **Payout requests** panel (or `payouts` in the terminal) lists every pending request with the requester (node label and id), the address, the amount, the account's balance after the hold, lifetime earnings and task count, how many prior requests the account has made, and whether any other account has asked to be paid to the same address. Those last ones are flagged, because they are what fraud looks like.
+3. The operator sends the USDC from the treasury wallet with whatever they use for that, then records the transaction signature (`approve <id> <signature>`, or the "Mark sent" button). The row flips to `sent` and the requester sees the signature.
+4. Or the operator declines (`reject <id> [reason]`) and the credits are posted back to the account in the same transaction.
 
-### Plugging in a real rail
+A `sent` row can't be re-approved and a `rejected` one can't be sent; both are final. `PAYOUT_MIN_MICRO` in the shared package is the minimum.
 
-`apps/api/src/core/payouts.ts` defines:
-
-```ts
-interface PayoutAdapter {
-  rail: 'usdc' | 'sol';
-  validateAddress(address: string): boolean;
-  send(amountMicro: number, address: string): Promise<string>; // returns a tx reference
-}
-```
-
-Implement it, then in `app.ts` after `buildContext`:
-
-```ts
-ctx.payouts.use(new SolanaUsdcAdapter({ rpc, treasuryKeypair, mint, microPerUsdc }));
-```
-
-`send` runs after the credits are debited. Return a tx signature and the payout flips to `sent`. Throw anything other than `PayoutPending` and the payout is marked `failed` and the credits are refunded in the same transaction. Decide the exchange rate inside the adapter; the router has no opinion about what a credit is worth.
-
-Minimum off-platform payout is $15 (`PAYOUT_MIN_MICRO` in the shared package). Credits can be kept and spent at any amount.
+There is no automatic rail on purpose. If you later want one, the shape is simple: a job that watches for `pending` rows, sends, and calls the same `approve` path with the signature. But a human in the loop is the right default while the network is small.
 
 ## Tiers
 

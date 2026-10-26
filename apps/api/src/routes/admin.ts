@@ -63,6 +63,29 @@ export function adminRoutes(ctx: Ctx): FastifyPluginAsync {
       quotes: ctx.db.prepare('SELECT id, company, email, need, created_at AS createdAt FROM quotes ORDER BY created_at DESC LIMIT 100').all(),
     }));
 
+    /** Payout review queue: who, where to, how much, and their balance. Pending first. */
+    app.get('/payouts', async () => ({ payouts: ctx.payouts.review() }));
+
+    /** The operator sent the USDC. Record the transaction so the requester sees it. */
+    app.post<{ Params: { id: string }; Body: { txRef?: string; note?: string } }>('/payouts/:id/approve', async (req, reply) => {
+      try {
+        return { payout: ctx.payouts.approve(req.params.id, String(req.body?.txRef ?? ''), req.body?.note ? String(req.body.note).slice(0, 200) : undefined) };
+      } catch (err) {
+        reply.code(400);
+        return { error: { message: (err as Error).message } };
+      }
+    });
+
+    /** Declined: the credits go back to the account. */
+    app.post<{ Params: { id: string }; Body: { reason?: string } }>('/payouts/:id/reject', async (req, reply) => {
+      try {
+        return { payout: ctx.payouts.reject(req.params.id, req.body?.reason ? String(req.body.reason).slice(0, 200) : undefined) };
+      } catch (err) {
+        reply.code(400);
+        return { error: { message: (err as Error).message } };
+      }
+    });
+
     /** Recent jobs across all accounts, content stripped. */
     app.get('/jobs', async () => ({ jobs: ctx.router.recentAll(50) }));
   };

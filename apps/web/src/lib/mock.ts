@@ -55,7 +55,7 @@ interface MNode {
   lastSeen: number;
   uptime: number;
   bench?: NodeRecord['benchmark'];
-  payouts: { id: string; status: string; rail: string; amountMicro: number; createdAt: number }[];
+  payouts: { id: string; status: string; rail: string; amountMicro: number; address: string; createdAt: number; nodeId: string; txRef?: string; note?: string; settledAt?: number }[];
 }
 
 const REPLIES = [
@@ -133,6 +133,20 @@ export class MockRouter {
     // Two tabs with no model so compute test jobs have cheap takers.
     this.simNode('browser', 'chrome on windows', { workloads: ['compute'], models: [], maxPromptChars: 6000, maxOutputTokens: 128, pricePer1k: 210, pricePerHour: 20_000, tokensPerSec: 9, hardware: { tier: 'cpu' }, region: 'toronto' });
     this.simNode('browser', 'firefox on mac', { workloads: ['llm', 'compute'], models: ['qwen2.5-0.5b-instruct'], maxPromptChars: 6000, maxOutputTokens: 192, pricePer1k: 230, pricePerHour: 90_000, tokensPerSec: 18, hardware: { gpu: 'Apple M1', tier: 'gpu-8' }, region: 'vancouver' });
+    // Two simulated operators with earnings and a payout waiting, so the
+    // operator view in the preview has something to review.
+    {
+      const sims = Array.from(this.nodes.values()).filter((n) => n.simulated).slice(3, 5);
+      const addrs = ['7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', 'DRpbCBMxVnDK7maPM5tGv6MvB3v1sRMC86PZ8okm21hy'];
+      sims.forEach((n, i) => {
+        n.earned = 61_000_000 + i * 18_000_000;
+        n.balance = 22_000_000 + i * 9_000_000;
+        n.jobsDone = 140 + i * 60;
+        const amt = 20_000_000;
+        n.balance -= amt;
+        n.payouts.unshift({ id: id('po'), status: 'pending', rail: 'usdc', amountMicro: amt, address: addrs[i], createdAt: Date.now() - (i + 1) * 3_600_000, nodeId: n.id });
+      });
+    }
     setInterval(() => this.emit({ t: 'stats', stats: this.stats() }), 4000);
     // Simulated customer traffic: a job every couple of seconds, billed to a
     // demo account rather than the viewer. Keeps the map moving.
@@ -438,6 +452,31 @@ export class MockRouter {
         return { status: 200, body: { entry, balanceMicro: this.balance } };
       }
       if (path === '/v1/admin/quotes') return { status: 200, body: { quotes: this.quotes } };
+      if (path === '/v1/admin/payouts') {
+        const all = Array.from(this.nodes.values()).flatMap((n) => n.payouts.map((p) => ({ ...p, accountId: `nacct_${n.id}`, nodeLabel: n.label, balanceMicro: n.balance, earnedMicro: n.earned, jobsDone: n.jobsDone, priorRequests: n.payouts.length - 1, addressSharedWith: 0 })));
+        all.sort((a, b2) => (a.status === 'pending' ? 0 : 1) - (b2.status === 'pending' ? 0 : 1) || b2.createdAt - a.createdAt);
+        return { status: 200, body: { payouts: all } };
+      }
+      if ((x = m(/^\/v1\/admin\/payouts\/([^/]+)\/(approve|reject)$/))) {
+        for (const n of this.nodes.values()) {
+          const p = n.payouts.find((q) => q.id === x![1]);
+          if (!p) continue;
+          if (p.status !== 'pending') return { status: 400, body: err(`payout is already ${p.status}`) };
+          if (x[2] === 'approve') {
+            if (String(b.txRef ?? '').trim().length < 8) return { status: 400, body: err('a transaction reference is required') };
+            p.status = 'sent';
+            p.txRef = String(b.txRef).trim();
+            p.settledAt = Date.now();
+          } else {
+            p.status = 'rejected';
+            p.note = b.reason ? String(b.reason) : undefined;
+            p.settledAt = Date.now();
+            n.balance += p.amountMicro;
+          }
+          return { status: 200, body: { payout: p } };
+        }
+        return { status: 400, body: err('no such payout') };
+      }
       if (path === '/v1/admin/jobs') return { status: 200, body: { jobs: Array.from(this.jobs.values()).reverse().slice(0, 50).map((j) => ({ ...j, input: { ...j.input, messages: undefined }, output: j.output ? { ...j.output, text: j.output.text === undefined ? undefined : '[hidden]' } : undefined })) } };
       return { status: 404, body: err('not found') };
     }
@@ -569,11 +608,14 @@ export class MockRouter {
       if (action === 'me') return { status: 200, body: { node: this.rec(n), uptimeMs24h: n.uptime, payoutMinMicro: PAYOUT_MIN_MICRO, balanceMicro: n.balance, ledger: [], jobs: Array.from(this.jobs.values()).filter((q) => q.nodeId === n.id).reverse().slice(0, 20).map((j) => ({ ...j, requesterId: 'hidden', input: { ...j.input, messages: undefined }, output: j.output ? { ...j.output, text: j.output.text === undefined ? undefined : '[hidden]' } : undefined })), payouts: n.payouts } };
       if (action === 'payouts') {
         const amt = Number(b.amountMicro);
-        if (!amt || amt > n.balance) return { status: 400, body: err('amount exceeds balance') };
-        if (b.rail === 'credits') return { status: 200, body: { payout: { id: id('po'), status: 'sent', rail: 'credits', amountMicro: amt } } };
-        if (amt < PAYOUT_MIN_MICRO) return { status: 400, body: err(`minimum payout for ${b.rail} is $${PAYOUT_MIN_MICRO / 1e6}`) };
+        const address = String(b.address ?? '');
+        if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) return { status: 400, body: err('a Solana wallet address is required (base58, 32–44 characters)') };
+        if (n.balance < PAYOUT_MIN_MICRO) return { status: 400, body: err(`balance is below the minimum payout of $${PAYOUT_MIN_MICRO / 1e6}`) };
+        if (!amt || amt < PAYOUT_MIN_MICRO) return { status: 400, body: err(`minimum payout is $${PAYOUT_MIN_MICRO / 1e6}`) };
+        if (amt > n.balance) return { status: 400, body: err('amount exceeds balance') };
+        if (n.payouts.some((q) => q.status === 'pending')) return { status: 400, body: err('a payout request is already waiting for review') };
         n.balance -= amt;
-        const p = { id: id('po'), status: 'pending', rail: b.rail, amountMicro: amt, createdAt: Date.now() };
+        const p = { id: id('po'), status: 'pending', rail: 'usdc', amountMicro: amt, address, createdAt: Date.now(), nodeId: n.id };
         n.payouts.unshift(p);
         return { status: 200, body: { payout: p } };
       }

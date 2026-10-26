@@ -4,7 +4,6 @@ import { config } from '../config.js';
 import { nodeAuth } from '../auth.js';
 import { toPublic } from '../core/nodes.js';
 import type { BenchResult, JobOutput, NodeCapabilities, NodeClass, ReceiptBody } from '@nightshift/shared';
-import type { Rail } from '../core/payouts.js';
 
 interface RegisterBody {
   class: NodeClass;
@@ -116,7 +115,7 @@ export function nodeRoutes(ctx: Ctx): FastifyPluginAsync {
       return {
         node,
         uptimeMs24h: ctx.router.nodeUptime24h(nodeId),
-        payoutMinMicro: ctx.payouts.minimumMicro('usdc'),
+        payoutMinMicro: ctx.payouts.minimumMicro(),
         balanceMicro: ctx.ledger.balance(acct),
         ledger: ctx.ledger.entries(acct, 30),
         jobs: ctx.router.recentForNode(nodeId, 20),
@@ -124,13 +123,14 @@ export function nodeRoutes(ctx: Ctx): FastifyPluginAsync {
       };
     });
 
-    app.post<{ Params: { id: string }; Body: { amountMicro: number; rail: Rail; address?: string } }>(
+    app.post<{ Params: { id: string }; Body: { amountMicro: number; address?: string } }>(
       '/nodes/:id/payouts',
+      { config: { rateLimit: { max: 10, timeWindow: '1 hour' } } },
       async (req, reply) => {
         const nodeId = auth(req, reply);
         const acct = ctx.nodes.accountId(nodeId);
         try {
-          const p = await ctx.payouts.request(acct, Number(req.body?.amountMicro), req.body?.rail, req.body?.address);
+          const p = ctx.payouts.request(acct, Number(req.body?.amountMicro), req.body?.address);
           return { payout: p };
         } catch (err) {
           reply.code(400);

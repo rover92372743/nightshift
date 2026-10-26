@@ -393,6 +393,19 @@ img, svg, canvas { display: block; max-width: 100%; }
 
 /* console */
 .console-page [hidden] { display: none !important; }
+/* payout review */
+.pay-panel { display: grid; gap: 12px; }
+.pay-h { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.pay-row { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--rule); border-radius: 10px; margin-top: 8px; }
+.pay-row.pending { border-color: var(--stamp); }
+.pay-row.sent { opacity: 0.75; }
+.pay-row.rejected { opacity: 0.6; }
+.pay-top { display: flex; gap: 10px; align-items: baseline; }
+.pay-top b { font-size: 1.1rem; }
+.pay-row .kv { font-size: 0.86rem; }
+.pay-row .row { display: flex; gap: 8px; align-items: center; }
+.pay-row .row .input { flex: 1; min-width: 0; }
+.pay-flag { color: #ffb648; margin: 0; }
 .console-gate { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
 .console-gate-card .row { display: flex; gap: 10px; }
 .console-gate-card .row .input { flex: 1; font-family: var(--mono); }

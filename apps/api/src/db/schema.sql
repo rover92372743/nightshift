@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS payouts (
   id           TEXT PRIMARY KEY,
   account_id   TEXT NOT NULL REFERENCES accounts(id),
   amount_micro INTEGER NOT NULL,
-  rail         TEXT NOT NULL,               -- 'credits' | 'usdc' | 'sol'
+  rail         TEXT NOT NULL,               -- 'usdc'
   address      TEXT,
   status       TEXT NOT NULL DEFAULT 'pending',
   tx_ref       TEXT,

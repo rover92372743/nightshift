@@ -149,8 +149,9 @@ export class NodeClient {
     return r.json();
   }
 
-  async requestPayout(amountMicro: number, rail: 'credits' | 'usdc' | 'sol', address?: string): Promise<unknown> {
-    const r = await this.signed('POST', `/v1/nodes/${this.id}/payouts`, { amountMicro, rail, address });
+  /** Ask for USDC on Solana. Debited now, reviewed by the operator, then sent. */
+  async requestPayout(amountMicro: number, address: string): Promise<unknown> {
+    const r = await this.signed('POST', `/v1/nodes/${this.id}/payouts`, { amountMicro, address });
     const data = await r.json();
     if (!r.ok) throw new Error(data?.error?.message ?? `payout ${r.status}`);
     return data.payout;

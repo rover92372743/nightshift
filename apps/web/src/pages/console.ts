@@ -4,7 +4,7 @@
 // commands: accounts, grants, inquiries. Same page, same prompt.
 
 import type { JobRecord, LedgerEntry, Receipt } from '@nightshift/shared';
-import { api, ApiError, session, API_BASE, type AdminAccount, type BatchSummary } from '../lib/api';
+import { api, ApiError, session, API_BASE, type AdminAccount, type BatchSummary, type PayoutReview } from '../lib/api';
 import { h, fmtMs, fmtUsd, timeHM, isPreview, mountReveals } from '../lib/dom';
 import { live } from '../lib/live';
 import type { Page } from '../main';
@@ -198,6 +198,7 @@ export function consolePage(): Page {
         session.setAdmin(null);
         paintSign();
         dim('signed out.');
+        payPanel.hidden = true;
         closeConsole();
       },
     },
@@ -371,6 +372,37 @@ export function consolePage(): Page {
         }
       },
     },
+    payouts: {
+      admin: true,
+      help: 'payouts              the payout review queue (pending first)',
+      run: async () => {
+        const { payouts } = await api.admin.payouts();
+        if (!payouts.length) return dim('no payout requests.');
+        table([['id', 'status', 'requester', 'amount', 'balance', 'address', 'when'], ...payouts.slice(0, 30).map((p) => [p.id, p.status, `${p.nodeLabel} (${p.nodeId.slice(0, 10)})`, fmtUsd(p.amountMicro), fmtUsd(p.balanceMicro), p.address, timeHM(p.createdAt)])]);
+        dim('approve <id> <tx reference>  after you have sent the USDC · reject <id> [reason]  puts the credits back');
+        void refreshPayouts();
+      },
+    },
+    approve: {
+      admin: true,
+      help: 'approve <id> <txref> record that the USDC was sent',
+      run: async ([id, tx, ...note]) => {
+        if (!id || !tx) return bad('usage: approve po_… <solana transaction signature>');
+        const { payout } = await api.admin.approvePayout(id, tx, note.join(' ') || undefined);
+        ok(`${payout.id} sent · ${fmtUsd(payout.amountMicro)} USDC → ${payout.address} · ${payout.txRef}`);
+        void refreshPayouts();
+      },
+    },
+    reject: {
+      admin: true,
+      help: 'reject <id> [reason]  decline a payout; credits return to the account',
+      run: async ([id, ...reason]) => {
+        if (!id) return bad('usage: reject po_… [reason]');
+        const { payout } = await api.admin.rejectPayout(id, reason.join(' ') || undefined);
+        out(`${payout.id} rejected · ${fmtUsd(payout.amountMicro)} returned to ${payout.nodeLabel}`, 'bad');
+        void refreshPayouts();
+      },
+    },
     all: {
       admin: true,
       help: 'all                  the last 50 tasks across every account (content hidden)',
@@ -527,6 +559,61 @@ export function consolePage(): Page {
     h('p', { class: 'small muted' }, 'Up to 500 items per batch, held for as one transaction. Progress shows in the terminal; "results <id>" downloads JSONL.'),
   );
 
+  // --- operator: payout review -------------------------------------------------------
+  // Every request shows who is asking, the address, the amount, and the
+  // account's balance, plus the sanity numbers (lifetime earnings, tasks,
+  // prior requests, whether another account uses the same address). Nothing
+  // is sent from here; the operator sends from the treasury wallet and
+  // records the transaction.
+  const payTable = h('div', { class: 'pay-table' });
+  const payPanel = h('div', { class: 'card pay-panel', hidden: true }, h('div', { class: 'row', style: { justifyContent: 'space-between', alignItems: 'baseline' } }, h('h3', null, 'Payout requests'), h('button', { class: 'btn sm secondary', onClick: () => void refreshPayouts() }, 'Refresh')), h('p', { class: 'small muted' }, 'Review each one, send the USDC from the treasury wallet, then record the transaction here. Rejecting returns the credits.'), payTable);
+  async function refreshPayouts(): Promise<void> {
+    if (!session.admin()) return;
+    try {
+      const { payouts } = await api.admin.payouts();
+      payPanel.hidden = false;
+      const pending = payouts.filter((p) => p.status === 'pending');
+      const done = payouts.filter((p) => p.status !== 'pending').slice(0, 10);
+      payTable.replaceChildren(
+        pending.length ? h('div', { class: 'pay-h' }, `${pending.length} waiting`) : h('p', { class: 'small muted' }, 'Nothing waiting.'),
+        ...pending.map(payRow),
+        ...(done.length ? [h('div', { class: 'pay-h', style: { marginTop: '10px' } }, 'recent')] : []),
+        ...done.map(payRow),
+      );
+    } catch (e) {
+      payTable.replaceChildren(h('p', { class: 'small', style: { color: '#ff7b7b' } }, errText(e)));
+    }
+  }
+  function payRow(p: PayoutReview): HTMLElement {
+    const flags: string[] = [];
+    if (p.amountMicro > p.earnedMicro) flags.push('asks for more than it ever earned');
+    if (p.addressSharedWith > 0) flags.push(`address also used by ${p.addressSharedWith} other account${p.addressSharedWith === 1 ? '' : 's'}`);
+    if (p.jobsDone < 5) flags.push(`only ${p.jobsDone} task${p.jobsDone === 1 ? '' : 's'} done`);
+    const tx = h('input', { class: 'input mono', placeholder: 'transaction signature', spellcheck: 'false' }) as HTMLInputElement;
+    const approveBtn = h('button', { class: 'btn sm stamp' }, 'Mark sent') as HTMLButtonElement;
+    const rejectBtn = h('button', { class: 'btn sm secondary' }, 'Reject') as HTMLButtonElement;
+    approveBtn.addEventListener('click', () => void exec(`approve ${p.id} ${tx.value.trim()}`));
+    rejectBtn.addEventListener('click', () => {
+      const why = window.prompt('Reason (shown to the requester, optional):') ?? '';
+      void exec(`reject ${p.id} ${why}`.trim());
+    });
+    return h(
+      'div',
+      { class: `pay-row ${p.status}` },
+      h('div', { class: 'pay-top' }, h('b', null, fmtUsd(p.amountMicro)), h('span', { class: 'tag' }, p.status), h('span', { class: 'small muted' }, timeHM(p.createdAt))),
+      h('div', { class: 'kv' },
+        h('span', null, 'requester'), h('span', null, `${p.nodeLabel} · `, h('code', { class: 'small' }, p.nodeId)),
+        h('span', null, 'address'), h('code', { class: 'small', style: { wordBreak: 'break-all' } }, p.address),
+        h('span', null, 'balance now'), h('span', null, `${fmtUsd(p.balanceMicro)} after this hold`),
+        h('span', null, 'lifetime'), h('span', null, `${fmtUsd(p.earnedMicro)} across ${p.jobsDone} task${p.jobsDone === 1 ? '' : 's'} · ${p.priorRequests} prior request${p.priorRequests === 1 ? '' : 's'}`),
+        ...(p.txRef ? [h('span', null, 'tx'), h('code', { class: 'small', style: { wordBreak: 'break-all' } }, p.txRef)] : []),
+        ...(p.note ? [h('span', null, 'note'), h('span', null, p.note)] : []),
+      ),
+      flags.length ? h('p', { class: 'small pay-flag' }, '⚠ ' + flags.join(' · ')) : null,
+      p.status === 'pending' ? h('div', { class: 'row' }, tx, approveBtn, rejectBtn) : null,
+    );
+  }
+
   // --- sign-in gate: nothing is shown until a key or the admin key checks out ----------
   const gKey = h('input', { class: 'input', type: 'password', placeholder: 'ns_… or the operator key', autocomplete: 'off', spellcheck: 'false' }) as HTMLInputElement;
   const gBtn = h('button', { class: 'btn stamp' }, 'Sign in') as HTMLButtonElement;
@@ -659,6 +746,7 @@ export function consolePage(): Page {
               h('p', { class: 'small muted' }, 'The router picks the cheapest idle machine that fits, holds the quoted amount, and charges what was actually used.'),
             ),
             batchPanel,
+            payPanel,
           ),
         ),
       ),
@@ -670,6 +758,8 @@ export function consolePage(): Page {
     grid.hidden = false;
     paintSign();
     void refreshWho();
+    payPanel.hidden = !session.admin();
+    void refreshPayouts();
     setTimeout(() => input.focus(), 50);
   }
   function closeConsole(): void {

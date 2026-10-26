@@ -39,6 +39,7 @@ const ADDED_COLUMNS: Array<[table: string, column: string, ddl: string]> = [
   ['jobs', 'batch_id', 'TEXT'],
   ['nodes', 'benchmark', 'TEXT'],
   ['nodes', 'tps_ema', 'REAL'],
+  ['payouts', 'note', 'TEXT'],
 ];
 
 function migrate(db: Db): void {

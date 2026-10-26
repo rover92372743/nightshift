@@ -4,7 +4,7 @@
 //   nightshift status                 what the router knows about this node
 //   nightshift earnings               balance, lifetime, uptime, recent jobs
 //   nightshift watch                  the same, refreshing every few seconds
-//   nightshift payout <amount> <rail> [address]   e.g. nightshift payout 50 usdc 7xK...
+//   nightshift payout <amount> <address>   USDC on Solana, e.g. nightshift payout 20 7xK...
 //   nightshift key                    print this node's public key
 //
 // Uses the key in ~/.nightshift/worker.key (the same one the worker uses), so
@@ -69,11 +69,11 @@ function render(me) {
     '',
     `${dim('balance')}   ${bold(usd(me.balanceMicro))}  ${dim(`(${cr(me.balanceMicro)} cr, spendable or payable)`)}`,
     `${dim('lifetime')}  ${usd(n.earnedMicro)} across ${n.jobsDone} task${n.jobsDone === 1 ? '' : 's'}, ${n.unitsVerified} units verified, ${n.jobsFailed} failed`,
-    `${dim('payout')}    ${me.balanceMicro >= me.payoutMinMicro ? green(`eligible (minimum ${usd(me.payoutMinMicro)})`) : `${usd(me.payoutMinMicro - me.balanceMicro)} to go before SOL/USDC payout`}`,
+    `${dim('payout')}    ${me.balanceMicro >= me.payoutMinMicro ? green(`eligible (minimum ${usd(me.payoutMinMicro)})`) : `${usd(me.payoutMinMicro - me.balanceMicro)} to minimum`}`,
   ];
   if (me.payouts?.length) {
     lines.push('', bold('Payouts'));
-    for (const p of me.payouts.slice(0, 5)) lines.push(`  ${when(p.createdAt)}  ${usd(p.amountMicro).padStart(9)}  ${p.rail.padEnd(7)} ${p.status}${p.txRef ? dim('  ' + p.txRef) : ''}`);
+    for (const p of me.payouts.slice(0, 5)) lines.push(`  ${when(p.createdAt)}  ${usd(p.amountMicro).padStart(9)}  USDC  ${p.status}${p.txRef ? dim('  ' + p.txRef) : p.note ? dim('  ' + p.note) : ''}`);
   }
   lines.push('', bold('Recent tasks'));
   if (!me.jobs.length) lines.push(dim('  none yet'));
@@ -103,24 +103,24 @@ if (cmd === 'key') {
   await tick();
   setInterval(tick, 5000);
 } else if (cmd === 'payout') {
-  const [amount, rail = 'usdc', address] = args;
+  const [amount, address] = args;
   const micro = Math.round(Number(amount) * 1e6);
-  if (!micro || !['credits', 'usdc', 'sol'].includes(rail)) {
-    console.error('usage: nightshift payout <amount> <credits|usdc|sol> [solana address]');
+  if (!micro || !address) {
+    console.error('usage: nightshift payout <amount> <solana address>   (USDC on Solana)');
     process.exit(1);
   }
-  if (rail !== 'credits' && micro < PAYOUT_MIN_MICRO) {
+  if (micro < PAYOUT_MIN_MICRO) {
     console.error(`Minimum payout is $${PAYOUT_MIN_MICRO / 1e6}.`);
     process.exit(1);
   }
   try {
-    const p = await client.requestPayout(micro, rail, address);
-    console.log(`${p.status === 'sent' ? green('sent') : blue(p.status)}  ${usd(p.amountMicro)} via ${p.rail}  ${dim(p.id)}`);
-    if (p.status === 'pending') console.log(dim('This will show a transaction reference once it goes out.'));
+    const p = await client.requestPayout(micro, address);
+    console.log(`${blue(p.status)}  ${usd(p.amountMicro)} USDC → ${address}  ${dim(p.id)}`);
+    console.log(dim('Debited from your balance and queued for review. The transaction reference shows in "earnings" once it is sent.'));
   } catch (e) {
     console.error(e.message);
     process.exit(1);
   }
 } else {
-  console.log('commands: status, earnings, watch, payout <amount> <rail> [address], key');
+  console.log('commands: status, earnings, watch, payout <amount> <solana address>, key');
 }

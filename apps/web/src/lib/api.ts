@@ -87,6 +87,9 @@ export const api = {
     grant: (accountId: string, credits: number, note?: string) => call<{ entry: LedgerEntry; balanceMicro: number }>('/v1/admin/grant', { method: 'POST', body: JSON.stringify({ accountId, credits, note }) }),
     quotes: () => call<{ quotes: { id: string; company: string; email: string; need: string; createdAt: number }[] }>('/v1/admin/quotes'),
     jobs: () => call<{ jobs: JobRecord[] }>('/v1/admin/jobs'),
+    payouts: () => call<{ payouts: PayoutReview[] }>('/v1/admin/payouts'),
+    approvePayout: (id: string, txRef: string, note?: string) => call<{ payout: PayoutReview }>(`/v1/admin/payouts/${id}/approve`, { method: 'POST', body: JSON.stringify({ txRef, note }) }),
+    rejectPayout: (id: string, reason?: string) => call<{ payout: PayoutReview }>(`/v1/admin/payouts/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
   },
 };
 
@@ -111,6 +114,26 @@ export interface BatchItem {
   costMicro?: number;
   receiptId?: string;
   error?: string;
+}
+
+export interface PayoutReview {
+  id: string;
+  accountId: string;
+  amountMicro: number;
+  rail: 'usdc';
+  address: string;
+  status: 'pending' | 'sent' | 'rejected';
+  txRef?: string;
+  note?: string;
+  createdAt: number;
+  settledAt?: number;
+  nodeId: string;
+  nodeLabel: string;
+  balanceMicro: number;
+  earnedMicro: number;
+  jobsDone: number;
+  priorRequests: number;
+  addressSharedWith: number;
 }
 
 export interface AdminAccount {

@@ -1,6 +1,6 @@
 # Earning with your hardware
 
-Two ways to run a node. Both earn to a key, both sign a receipt per task, both cash out in SOL or USDC on Solana.
+Two ways to run a node. Both earn to a key, both sign a receipt per task, both cash out in USDC on Solana.
 
 **In a browser tab, nothing to install.** Open the Earn page and press start. In Chrome or Edge on a machine with a graphics card, the tab serves model tasks through WebGPU; elsewhere it serves compute tasks. The model is fetched once and cached by the browser. The node runs as long as the tab is open, keeps going while you browse the rest of the site, and can keep working in the background if you let it. Close the tab and it stops.
 
@@ -49,13 +49,9 @@ Both views show the task's kind, status, duration and what it paid. Neither show
 
 ## Cashing out
 
-| Rail | Minimum | What happens |
-|---|---|---|
-| USDC on Solana | $15 | Balance is debited, a payout is recorded, the operator sends it and attaches the transaction reference |
-| SOL | $15 | Same |
-| Credits | none | Nothing moves; credits can be spent on inference like any other |
+Payouts are USDC on Solana. Enter the amount and your Solana wallet address on the Earn page (or `nightshift payout <amount> <address>` from the CLI). The minimum is $15: your balance has to be at or above it, and so does the amount. One request at a time.
 
-Until a chain adapter with a funded treasury is configured, your terminal shows the request as `pending` and the reference appears when it's sent. See [Payouts and tiers](/docs/payouts-and-tiers) for what wiring that up involves.
+What happens: the amount is set aside from your balance immediately, the request goes into a queue, the operator reviews it, sends the USDC from the treasury wallet, and records the transaction signature, which then shows next to the request in your terminal. If a request is declined, the credits go straight back to your balance with the reason.
 
 Credits are a unit of account inside the router, one credit is one US dollar for pricing and payout purposes, and nothing here promises a yield.
 

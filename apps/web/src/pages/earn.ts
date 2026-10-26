@@ -82,7 +82,7 @@ export function earnPage(): Page {
     ];
     if (me.payouts.length) {
       rows.push('', 'payouts');
-      for (const p of me.payouts.slice(0, 5)) rows.push(`  ${timeHM(p.createdAt)}  ${usd(p.amountMicro).padStart(10)}  ${p.rail.padEnd(7)} ${p.status}${p.txRef ? '  ' + p.txRef : ''}`);
+      for (const p of me.payouts.slice(0, 5)) rows.push(`  ${timeHM(p.createdAt)}  ${usd(p.amountMicro).padStart(10)}  USDC  ${p.status}${p.txRef ? '  ' + p.txRef : ''}`);
     }
     rows.push('', 'recent tasks');
     if (!me.jobs.length) rows.push('  none yet');
@@ -90,7 +90,7 @@ export function earnPage(): Page {
       rows.push(`  ${timeHM(j.createdAt)}  ${j.input.workload.padEnd(8)} ${j.status.padEnd(9)} ${(j.output?.durationMs ? fmtMs(j.output.durationMs) : '').padStart(7)}  ${(j.costMicro ? usd(j.costMicro) : '').padStart(10)}`);
     }
     term.textContent = rows.join('\n');
-    payBtn.disabled = me.balanceMicro < (payRail.value === 'credits' ? 1 : me.payoutMinMicro);
+    payBtn.disabled = me.balanceMicro < me.payoutMinMicro || me.payouts.some((p) => p.status === 'pending');
   }
   async function refreshMe(): Promise<void> {
     const c = client() ?? viewClient;
@@ -243,22 +243,17 @@ export function earnPage(): Page {
 
   // --- payout ---------------------------------------------------------------
   const payAmount = h('input', { class: 'input', type: 'number', min: 15, step: 1, placeholder: '15' }) as HTMLInputElement;
-  const payRail = h('select', { class: 'select' }, h('option', { value: 'usdc' }, 'USDC on Solana'), h('option', { value: 'sol' }, 'SOL'), h('option', { value: 'credits' }, 'Keep as credits')) as HTMLSelectElement;
-  const payAddr = h('input', { class: 'input mono', placeholder: 'Solana wallet address' }) as HTMLInputElement;
+  const payAddr = h('input', { class: 'input mono', placeholder: 'Solana wallet address (USDC)', spellcheck: 'false' }) as HTMLInputElement;
   const payBtn = h('button', { class: 'btn secondary', disabled: true }, 'Request payout') as HTMLButtonElement;
-  const payNote = h('p', { class: 'small muted' }, `Minimum payout ${usd(PAYOUT_MIN_MICRO)}. The transaction reference shows here once it goes out.`);
-  payRail.addEventListener('change', () => {
-    payAddr.style.display = payRail.value === 'credits' ? 'none' : '';
-    void refreshMe();
-  });
+  const payNote = h('p', { class: 'small muted' }, `Paid as USDC on Solana. Minimum payout ${usd(PAYOUT_MIN_MICRO)}. Each request is reviewed before it is sent; the transaction reference shows here once it goes out.`);
   payBtn.addEventListener('click', async () => {
     const c = client() ?? viewClient;
     if (!c) return;
     const amount = Math.round(Number(payAmount.value) * 1_000_000);
     payBtn.disabled = true;
     try {
-      const p = (await c.requestPayout(amount, payRail.value as 'credits' | 'usdc' | 'sol', payAddr.value.trim() || undefined)) as { status: string; id: string };
-      payNote.textContent = p.status === 'sent' ? 'Done. Credits stay in your balance.' : `Recorded as ${p.status} (${p.id}). The operator settles these; the reference will appear here when it is sent.`;
+      const p = (await c.requestPayout(amount, payAddr.value.trim())) as { status: string; id: string };
+      payNote.textContent = `Requested (${p.id}). ${usd(amount)} is set aside from your balance while it is reviewed; the transaction reference will appear here when it is sent.`;
       void refreshMe();
     } catch (err) {
       payNote.textContent = (err as Error).message;
@@ -273,7 +268,7 @@ export function earnPage(): Page {
   const el = h(
     'div',
     { class: 'container section' },
-    h('div', { class: 'section-head reveal' }, h('h1', null, 'Earn with your hardware'), h('p', null, 'Press start and this tab becomes a node, no install. It takes tasks from businesses using the network, you are paid per task by hardware class, and you cash out in SOL or USDC.')),
+    h('div', { class: 'section-head reveal' }, h('h1', null, 'Earn with your hardware'), h('p', null, 'Press start and this tab becomes a node, no install. It takes tasks from businesses using the network, you are paid per task by hardware class, and you cash out in USDC on Solana.')),
     h(
       'div',
       { class: 'worker reveal', 'data-delay': '1' },
@@ -323,8 +318,7 @@ export function earnPage(): Page {
           'div',
           { class: 'card', style: { display: 'grid', gap: '12px' } },
           h('h3', null, 'Payout'),
-          h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Amount, USD'), payAmount), h('label', { class: 'field' }, h('span', null, 'Rail'), payRail)),
-          payAddr,
+          h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Amount, USD'), payAmount), h('label', { class: 'field' }, h('span', null, 'Solana address'), payAddr)),
           h('div', { class: 'row' }, payBtn),
           payNote,
         ),
