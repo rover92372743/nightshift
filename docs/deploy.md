@@ -75,3 +75,19 @@ Set `CORS_ORIGINS` on the API to the site's origin. The cookie-based anonymous s
 - Logs are pino JSON on stdout.
 
 There's no admin UI. It's a small system and SQLite's shell is a fine one.
+
+## Vercel site + VPS API
+
+The split used for the hosted version: the site on Vercel, the API on a small VPS behind Caddy.
+
+**API (any Ubuntu/Debian VPS, as root):**
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/rover92372743/nightshift/main/deploy/setup.sh | bash
+nano /opt/nightshift/.env        # set API_DOMAIN and CORS_ORIGINS
+cd /opt/nightshift && docker compose up -d --build
+```
+
+Point an A record for `API_DOMAIN` at the server first; Caddy fetches the certificate on boot. The ledger and signing key live in the `nightshift-data` Docker volume. Updating later is `git pull && docker compose up -d --build`. Back up the volume: `docker run --rm -v nightshift_nightshift-data:/data -v $PWD:/out alpine tar czf /out/nightshift-backup.tgz /data`.
+
+**Site (Vercel):** import the repo; `vercel.json` sets the build. Add one environment variable, `VITE_API_URL=https://<API_DOMAIN>`, and redeploy. Use a subdomain of the same domain for the API (`example.com` + `api.example.com`) so the console's cookie session works.

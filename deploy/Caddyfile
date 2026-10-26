@@ -1,0 +1,5 @@
+{$API_DOMAIN} {
+	encode zstd gzip
+	# WebSocket upgrade for /v1/network/live is passed through automatically.
+	reverse_proxy api:8787
+}

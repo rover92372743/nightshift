@@ -1,0 +1,33 @@
+# Nightshift API behind Caddy (automatic HTTPS).
+# Copy deploy/env.example to .env and fill it in, then: docker compose up -d
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # The site is on Vercel, so don't serve it from here.
+      NIGHTSHIFT_STATIC: ""
+    volumes:
+      - nightshift-data:/data
+    expose:
+      - "8787"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  nightshift-data:
+  caddy-data:
+  caddy-config:
