@@ -15,6 +15,7 @@
     "test": "npm run test --workspaces --if-present",
     "worker": "node apps/api/scripts/headless-worker.mjs",
     "cli": "node apps/api/scripts/nightshift.mjs",
+    "build:agent": "npm run build -w packages/agent",
     "build:preview": "npm run build -w packages/shared && cd apps/web && vite build -c vite.preview.config.ts"
   },
   "devDependencies": {

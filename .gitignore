@@ -5,3 +5,4 @@ data/
 *.log
 .DS_Store
 apps/web/dist-preview/
+packages/agent/bin/

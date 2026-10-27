@@ -1,0 +1,24 @@
+{
+  "name": "nightshift-agent",
+  "version": "0.1.0",
+  "description": "Run a Nightshift node from a terminal: your GPU takes AI tasks from businesses and is paid per task, with a signed receipt for each.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "nightshift-agent": "bin/agent.mjs",
+    "nightshift": "bin/cli.mjs"
+  },
+  "files": ["bin", "README.md"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "esbuild ../../apps/api/scripts/headless-worker.mjs --bundle --platform=node --format=esm --target=node20 --outfile=bin/agent.mjs --external:tweetnacl && esbuild ../../apps/api/scripts/nightshift.mjs --bundle --platform=node --format=esm --target=node20 --outfile=bin/cli.mjs --external:tweetnacl && chmod +x bin/*.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.5"
+  },
+  "keywords": ["gpu", "compute", "marketplace", "node", "usdc"]
+}

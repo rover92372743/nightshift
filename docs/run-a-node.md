@@ -14,9 +14,13 @@ Browsers throttle hidden tabs, so background earning is slower than foreground. 
 
 ## From a terminal
 
+The agent is a small public npm package, `nightshift-agent`. Needs Node 20 or newer.
+
 ```sh
-NIGHTSHIFT_URL=http://localhost:8787 npm run worker
+NIGHTSHIFT_URL=https://api.nightshift.host npx nightshift-agent
 ```
+
+(Inside this repository, `npm run worker` runs the same code from source.)
 
 Environment:
 
@@ -42,11 +46,11 @@ Run any OpenAI-compatible server locally and point the agent at it:
 ```sh
 # llama.cpp
 llama-server -m qwen2.5-7b-instruct-q4_k_m.gguf --port 8080
-NIGHTSHIFT_LLM_URL=http://localhost:8080/v1 NIGHTSHIFT_MODELS=qwen2.5-7b-instruct npm run worker
+NIGHTSHIFT_LLM_URL=http://localhost:8080/v1 NIGHTSHIFT_MODELS=qwen2.5-7b-instruct npx nightshift-agent
 
 # Ollama
 ollama serve
-NIGHTSHIFT_LLM_URL=http://localhost:11434/v1 NIGHTSHIFT_MODELS=llama3.1:8b npm run worker
+NIGHTSHIFT_LLM_URL=http://localhost:11434/v1 NIGHTSHIFT_MODELS=llama3.1:8b npx nightshift-agent
 ```
 
 The agent checks the server answers before advertising `llm`. Model names are free-form strings matched exactly; customers have to ask for the name you list.

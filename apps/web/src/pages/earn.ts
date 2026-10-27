@@ -320,7 +320,8 @@ export function earnPage(): Page {
     }
   });
 
-  const install = `git clone <repo> nightshift && cd nightshift && npm install\nNIGHTSHIFT_URL=${API_BASE || location.origin} npm run worker`;
+  // The agent is a public npm package; the site and router are not.
+  const install = `NIGHTSHIFT_URL=${API_BASE || location.origin} npx nightshift-agent`;
   const pub = h('code', { class: 'small', style: { wordBreak: 'break-all' } }, key.publicKey);
 
   const el = h(
@@ -353,8 +354,8 @@ export function earnPage(): Page {
           'div',
           { class: 'card', style: { display: 'grid', gap: '12px' } },
           h('h3', null, 'Want it running all day on a bigger model?'),
-          h('p', { class: 'small muted' }, 'Run the agent on the machine instead. It serves larger models through a local model server, keeps going with the lid closed, and earns to the same kind of key.'),
-          h('pre', null, h('code', null, isPreview() ? 'git clone <repo> nightshift && cd nightshift && npm install\nNIGHTSHIFT_URL=https://your-router npm run worker' : install)),
+          h('p', { class: 'small muted' }, 'Run the agent on the machine instead: one command, needs Node 20. It serves larger models through a local model server, keeps going with the lid closed, and earns to the same kind of key.'),
+          h('pre', null, h('code', null, isPreview() ? 'NIGHTSHIFT_URL=https://your-router npx nightshift-agent' : install)),
           h('div', { class: 'row' }, h('a', { class: 'btn sm secondary', href: '/docs/earning' }, 'How earnings work'), h('a', { class: 'btn sm secondary', href: '/docs/run-a-node' }, 'Agent reference')),
         ),
       ),

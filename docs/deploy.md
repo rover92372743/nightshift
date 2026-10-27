@@ -89,3 +89,16 @@ cd /opt/nightshift && docker compose up -d --build
 Point an A record for `API_DOMAIN` at the server first; Caddy fetches the certificate on boot. The ledger and signing key live in the `nightshift-data` Docker volume. Updating later is `git pull && docker compose up -d --build`. Back up the volume: `docker run --rm -v nightshift_nightshift-data:/data -v $PWD:/out alpine tar czf /out/nightshift-backup.tgz /data`.
 
 **Site (Vercel):** import the repo; `vercel.json` sets the build. Add one environment variable, `VITE_API_URL=https://<API_DOMAIN>`, and redeploy. Use a subdomain of the same domain for the API (`example.com` + `api.example.com`) so the console's cookie session works.
+
+## Publishing the agent
+
+Operators install the agent with `npx nightshift-agent`. The package lives in `packages/agent` and is a bundle of `apps/api/scripts/headless-worker.mjs` and the CLI with the shared code inlined, so it has no dependency on this repository once built.
+
+```sh
+npm run build:agent
+cd packages/agent
+npm version patch        # bump when the agent changes
+npm publish --access public
+```
+
+The first publish needs an npm account (`npm login`). Bump the version whenever the shared protocol changes (receipt shape, benchmark, registration body), because an old agent will be refused by a newer router.
