@@ -85,11 +85,11 @@ export function inferenceRoutes(ctx: Ctx): FastifyPluginAsync {
       return job;
     });
 
-    // Batches: up to 500 inputs in one call. Held for as one transaction.
+    // Batches: up to 1000 inputs in one call. Held for as one transaction.
     app.post<{ Body: { items?: Partial<JobInput>[]; label?: string } }>('/batches', limited, async (req, reply) => {
       const acct = who(req, reply);
       const items = Array.isArray(req.body?.items) ? req.body.items : [];
-      if (items.length === 0 || items.length > 500) throw new JobError(400, 'items: 1 to 500 job inputs');
+      if (items.length === 0 || items.length > 1000) throw new JobError(400, 'items: 1 to 1000 job inputs');
       try {
         const b = ctx.router.enqueueBatch(acct, items, req.body?.label ? String(req.body.label).slice(0, 80) : undefined);
         reply.code(202);

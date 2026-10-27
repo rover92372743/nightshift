@@ -495,7 +495,7 @@ export class MockRouter {
     }
     if (path === '/v1/batches' && method === 'POST') {
       const items = Array.isArray(b.items) ? (b.items as Partial<JobInput>[]) : [];
-      if (!items.length || items.length > 500) return { status: 400, body: err('items: 1 to 500 job inputs') };
+      if (!items.length || items.length > 1000) return { status: 400, body: err('items: 1 to 1000 job inputs') };
       const batchId = id('bat');
       const jobs: JobRecord[] = [];
       for (const it of items) {

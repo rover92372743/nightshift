@@ -23,12 +23,47 @@ export function consolePage(): Page {
   let busy = false;
   let watching = new Set<string>();
 
+  // --- transcript persistence ---------------------------------------------------
+  // The page is rebuilt on every navigation, so the transcript and command
+  // history are kept in sessionStorage (same lifetime as the sign-in) and
+  // put back when you return. Live watchers are re-armed for anything still
+  // running.
+  const LOG_SLOT = 'nightshift.console.log';
+  const HIST_SLOT = 'nightshift.console.hist';
+  let persistTimer: number | undefined;
+  function persist(): void {
+    clearTimeout(persistTimer);
+    persistTimer = window.setTimeout(() => {
+      try {
+        const lines = Array.from(term.children).slice(-400).map((el) => ({ c: (el as HTMLElement).className.replace('console-line', '').trim(), t: (el as HTMLElement).textContent ?? '' }));
+        sessionStorage.setItem(LOG_SLOT, JSON.stringify(lines));
+        sessionStorage.setItem(HIST_SLOT, JSON.stringify(history.slice(0, 100)));
+      } catch {
+        /* storage unavailable: the transcript just won't survive navigation */
+      }
+    }, 150);
+  }
+  function restore(): boolean {
+    try {
+      const lines = JSON.parse(sessionStorage.getItem(LOG_SLOT) ?? 'null') as { c: string; t: string }[] | null;
+      const hist = JSON.parse(sessionStorage.getItem(HIST_SLOT) ?? '[]') as string[];
+      history.push(...hist);
+      if (!lines?.length) return false;
+      for (const l of lines) term.appendChild(h('div', { class: `console-line ${l.c}` }, l.t));
+      term.scrollTop = term.scrollHeight;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // --- output helpers ---------------------------------------------------------
   function out(text: string, cls = ''): HTMLElement {
     const el = h('div', { class: `console-line ${cls}` }, text);
     term.appendChild(el);
     while (term.children.length > 600) term.firstElementChild?.remove();
     term.scrollTop = term.scrollHeight;
+    persist();
     return el;
   }
   const dim = (t: string) => out(t, 'dim');
@@ -43,6 +78,7 @@ export function consolePage(): Page {
     const el = h('div', { class: 'console-line cmd' }, h('span', { class: 'console-sign' }, whoSign()), ' ', cmd);
     term.appendChild(el);
     term.scrollTop = term.scrollHeight;
+    persist();
   }
   function whoSign(): string {
     return session.admin() ? '#' : session.key() ? '$' : '>';
@@ -197,7 +233,13 @@ export function consolePage(): Page {
         session.setKey(null);
         session.setAdmin(null);
         paintSign();
-        dim('signed out.');
+        term.replaceChildren();
+        try {
+          sessionStorage.removeItem(LOG_SLOT);
+          sessionStorage.removeItem(HIST_SLOT);
+        } catch {
+          /* ignore */
+        }
         payPanel.hidden = true;
         closeConsole();
       },
@@ -413,7 +455,10 @@ export function consolePage(): Page {
     },
     clear: {
       help: 'clear                wipe the screen',
-      run: () => term.replaceChildren(),
+      run: () => {
+        term.replaceChildren();
+        persist();
+      },
     },
   };
 
@@ -470,6 +515,7 @@ export function consolePage(): Page {
     } else if (e.key === 'l' && e.ctrlKey) {
       e.preventDefault();
       term.replaceChildren();
+      persist();
     }
   });
 
@@ -525,8 +571,8 @@ export function consolePage(): Page {
       bPreview.textContent = `could not parse: ${(e as Error).message}`;
       return;
     }
-    if (parsed.length > 500) {
-      bPreview.textContent = `${parsed.length} lines; a batch is at most 500. Split the file.`;
+    if (parsed.length > 1000) {
+      bPreview.textContent = `${parsed.length} lines; a batch is at most 1000. Split the file.`;
       parsed = [];
       return;
     }
@@ -556,7 +602,7 @@ export function consolePage(): Page {
     h('label', { class: 'field' }, h('span', null, 'Label'), bLabel),
     bPreview,
     h('div', { class: 'row' }, bSend),
-    h('p', { class: 'small muted' }, 'Up to 500 items per batch, held for as one transaction. Progress shows in the terminal; "results <id>" downloads JSONL.'),
+    h('p', { class: 'small muted' }, 'Up to 1000 items per batch, held for as one transaction. Progress shows in the terminal; "results <id>" downloads JSONL.'),
   );
 
   // --- operator: payout review -------------------------------------------------------
@@ -709,8 +755,10 @@ export function consolePage(): Page {
     'send tasks, watch them route, read the receipts.',
     '',
   ];
-  banner.forEach((l) => dim(l));
-  dim('type "help" for commands, or use the panels. ↑ recalls history.');
+  if (!restore()) {
+    banner.forEach((l) => dim(l));
+    dim('type "help" for commands, or use the panels. ↑ recalls history.');
+  }
   paintSign();
 
   const keyLink = h('a', { href: '/docs/console' }, 'Guide');
@@ -760,6 +808,11 @@ export function consolePage(): Page {
     payPanel.hidden = !session.admin();
     void refreshPayouts();
     setTimeout(() => input.focus(), 50);
+    // anything still running when you left: pick the progress lines back up
+    if (session.key()) {
+      api.batches().then(({ batches }) => batches.filter((bt) => bt.counts.done + bt.counts.failed < bt.total).forEach((bt) => void watchBatch(bt.id))).catch(() => {});
+      api.jobs().then(({ jobs }) => jobs.filter((j) => j.status === 'queued' || j.status === 'assigned' || j.status === 'running').slice(0, 5).forEach((j) => void watch(j.id))).catch(() => {});
+    }
   }
   function closeConsole(): void {
     grid.hidden = true;

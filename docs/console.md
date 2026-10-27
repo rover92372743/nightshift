@@ -40,7 +40,7 @@ The hold is the quote; the charge is what was used. The difference comes straigh
 
 ## Batches
 
-The "Send a batch" panel takes a file: plain text with one prompt per line (all sent to the model and token limit you pick), or JSONL with one full job input per line when you need control over each item. Up to 500 items. The whole batch is held for in one transaction, so if the balance can't cover all of it nothing is queued.
+The "Send a batch" panel takes a file: plain text with one prompt per line (all sent to the model and token limit you pick), or JSONL with one full job input per line when you need control over each item. Up to 1000 items. The whole batch is held for in one transaction, so if the balance can't cover all of it nothing is queued.
 
 Progress shows in the terminal as a bar and updates until every item has finished. Then:
 

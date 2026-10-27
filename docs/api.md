@@ -88,7 +88,7 @@ Your last 20 jobs.
 
 #### `POST /v1/batches`
 
-`{"items": [JobInput, …], "label": "eval run 3"}` → `202 {id, total, jobIds}`. Up to 500 inputs. The whole batch is held for in one transaction: if your balance can't cover all of it, nothing is queued (`402`).
+`{"items": [JobInput, …], "label": "eval run 3"}` → `202 {id, total, jobIds}`. Up to 1000 inputs. The whole batch is held for in one transaction: if your balance can't cover all of it, nothing is queued (`402`).
 
 #### `GET /v1/batches`
 
