@@ -1,6 +1,5 @@
 import type { LiveEvent, NetworkStats } from '@nightshift/shared';
-import { h, svg, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtUsd, fmtPerM, isPreview, copyText } from '../lib/dom';
-import tokenMark from '../../public/night-token.svg?raw';
+import { h, tweenNumber, fmtMs, mountReveals, prefersReducedMotion, fmtUsd, fmtPerM, isPreview } from '../lib/dom';
 import { live } from '../lib/live';
 import { api, ApiError } from '../lib/api';
 import { receiptEl, sampleReceipt, tilt } from '../lib/receipt';
@@ -124,7 +123,6 @@ export function homePage(): Page {
             testBtn,
           ),
           testNote,
-          tokenBox(),
         ),
         h('div', { class: 'hero-receipt reveal', 'data-delay': '3' }, printer, caption),
       ),
@@ -177,38 +175,4 @@ export function homePage(): Page {
       stopReveal();
     },
   };
-}
-
-/**
- * The $NIGHT contract box. The address is empty until the token exists; set
- * VITE_NIGHT_CONTRACT at build time (or the window override below for the
- * preview) and the box shows it with a copy button. Until then it says so.
- */
-const NIGHT_CONTRACT: string = ((import.meta.env.VITE_NIGHT_CONTRACT as string | undefined) ?? '').trim();
-
-function tokenBox(): HTMLElement {
-  const addr = NIGHT_CONTRACT;
-  const short = addr ? `${addr.slice(0, 8)}…${addr.slice(-6)}` : 'CONTRACT ADDRESS COMING SOON';
-  const addrEl = h('span', { class: `token-addr ${addr ? '' : 'pending'}`, title: addr }, short, addr ? null : h('i', { class: 'token-cursor' }));
-  const copy = h('button', { class: 'btn sm secondary token-copy', disabled: !addr, 'aria-label': 'Copy contract address' }, 'Copy');
-  copy.addEventListener('click', () => {
-    void copyText(addr).then(() => {
-      copy.textContent = 'Copied';
-      setTimeout(() => (copy.textContent = 'Copy'), 1200);
-    });
-  });
-  const ic = svg(tokenMark);
-  ic.classList.add('token-ic');
-  ic.setAttribute('aria-hidden', 'true');
-  return h(
-    'div',
-    { class: 'token-box reveal', 'data-delay': '4' },
-    h('div', { class: 'token-stub' }, ic),
-    h(
-      'div',
-      { class: 'token-body' },
-      h('div', { class: 'token-line' }, h('span', { class: 'token-k' }, 'TOKEN'), h('b', null, '$NIGHT'), h('span', { class: `token-state ${addr ? 'live' : ''}` }, addr ? 'LIVE' : 'COMING SOON')),
-      h('div', { class: 'token-line' }, h('span', { class: 'token-k' }, 'CA'), addrEl, addr ? copy : null),
-    ),
-  );
 }
