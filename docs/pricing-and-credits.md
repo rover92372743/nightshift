@@ -22,12 +22,23 @@ Routing picks the cheapest capable node by whichever price applies to the job's 
 
 ## How one job is priced
 
-Nodes publish a price per thousand units and a price per hour. For llm work a unit is an output token; for compute it's a thousand rounds of the hash chain. Floors are 200 µcr per 1k and 10,000 µcr ($0.01) per hour.
+Nodes publish a price per thousand units and a price per hour. For llm work a unit is an output token; for compute it's a thousand rounds of the hash chain. That price is what the node receives. The business is charged the node's price plus the platform fee (`PLATFORM_FEE_BPS`, 20%), so a node that lists $0.48 an hour costs the business $0.60, and "operators receive 80% of list" is arithmetic the ledger does on every job, not a promise.
 
-1. **Quote.** When a job comes in, the router looks at every online, idle node that could run it and takes the lowest price. The hold is `ceil(maxOutputTokens × price / 1000)`. If no node is online the floor is used and the job waits.
+Floors are per hardware tier and follow the tier the benchmark measured, not the one the node claimed (`HOURLY_FLOOR`, `PER_1K_FLOOR` in the shared package): roughly what that class of machine burns in electricity at full load at $0.30/kWh, times 1.5. A node that asks for less is raised to the floor at registration. The point is that nobody can price the whole network below cost; the router always picks the cheapest capable node, so one reckless listing would otherwise take every job and then quit when the power bill arrived.
+
+| Tier | Node floor /h | Node suggested /h | Business pays /h | Node per 1M | Business per 1M |
+|---|---|---|---|---|---|
+| CPU only | $0.05 | $0.08 | $0.10 | $0.30/M units | $0.38 |
+| GPU up to 8 GB | $0.12 | $0.20 | $0.25 | $0.32 | $0.40 |
+| GPU 12–16 GB | $0.18 | $0.32 | $0.40 | $0.44 | $0.55 |
+| GPU 20–24 GB | $0.28 | $0.48 | $0.60 | $0.64 | $0.80 |
+| GPU 32–48 GB | $0.40 | $0.88 | $1.10 | $1.04 | $1.30 |
+| GPU 80 GB+ | $0.80 | $1.60 | $2.00 | $1.76 | $2.20 |
+
+1. **Quote.** When a job comes in, the router looks at every online, idle node that could run it and takes the lowest price. The hold is `withFee(ceil(maxOutputTokens × price / 1000))`. If no node is online the lowest floor is used and the job waits.
 2. **Hold.** That amount is debited from the requester inside a transaction. Two concurrent requests can't both spend the last credit.
 3. **Run.** The node reports a token count. The router caps it at roughly half the character count of the text plus a few, so a node can't bill for tokens that aren't there.
-4. **Settle.** Cost is `min(hold, ceil(units × that node's price / 1000))`, minimum 1 µcr. The difference between the hold and the cost is refunded. The cost is credited to the node.
+4. **Settle.** The node's cost is `min(nodeShare(hold), ceil(units × that node's price / 1000))`, minimum 1 µcr; that figure is what the node signs on the receipt and what is credited to it. The business is charged `withFee(cost)`, the platform's share goes to the `platform` account, and the difference between the hold and the charge is refunded.
 5. **Fail.** If the job fails after three attempts, or is cancelled, the whole hold is refunded.
 
 Every one of those movements is a row in `ledger` with a `kind` (`grant`, `charge`, `earn`, `payout`, `refund`) and a `ref` pointing at the job or payout. Balances are sums over that table; there's no separate balance column to drift.

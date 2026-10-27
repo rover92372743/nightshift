@@ -27,7 +27,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { NodeClient, runWorker, computeTask, tierForVram, TIER_LABEL, HOURLY_SUGGESTED, runBenchCpu, sampleIndices, benchElement } from '@nightshift/shared';
+import { NodeClient, runWorker, computeTask, tierForVram, TIER_LABEL, HOURLY_SUGGESTED, PER_1K_SUGGESTED, runBenchCpu, sampleIndices, benchElement } from '@nightshift/shared';
 
 const baseUrl = process.env.NIGHTSHIFT_URL ?? 'http://localhost:8787';
 const llmUrl = process.env.NIGHTSHIFT_LLM_URL?.replace(/\/$/, '');
@@ -60,8 +60,7 @@ function detectGpu() {
 const hw = detectGpu();
 const tier = tierForVram(hw.vramGb);
 // Suggested prices per tier, µcr per 1k units. Operators can override.
-const SUGGESTED = { cpu: 250, 'gpu-8': 400, 'gpu-16': 600, 'gpu-24': 900, 'gpu-48': 1500, 'gpu-80': 2600 };
-const price = Number(process.env.NIGHTSHIFT_PRICE ?? SUGGESTED[tier]);
+const price = Number(process.env.NIGHTSHIFT_PRICE ?? PER_1K_SUGGESTED[tier]);
 const hourly = Number(process.env.NIGHTSHIFT_HOURLY ?? HOURLY_SUGGESTED[tier]);
 const label = process.env.NIGHTSHIFT_LABEL ?? `${os.hostname()} (${hw.gpu ? 'gpu' : 'cli'})`;
 

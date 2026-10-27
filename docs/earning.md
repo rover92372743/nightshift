@@ -14,16 +14,18 @@ List rates at the time of writing, and what reaches you:
 
 | Hardware class | Typical work | List per card-hour | You receive per card-hour | List per 1M output tokens | You receive per 1M |
 |---|---|---|---|---|---|
-| CPU only | compute tasks, data prep | $0.03 | $0.024 | — | — |
-| GPU up to 8 GB | 1–3B models, embeddings | $0.12 | $0.096 | $0.15 | $0.12 |
-| GPU 12–16 GB | 7–8B models, image generation | $0.20 | $0.16 | $0.20 | $0.16 |
-| GPU 20–24 GB | 13B models, image and video pipelines | $0.32 | $0.256 | $0.30 | $0.24 |
-| GPU 32–48 GB | 30–34B models, LoRA fine-tuning | $0.75 | $0.60 | $0.50 | $0.40 |
-| GPU 80 GB+ | 70B models, full fine-tunes | $1.75 | $1.40 | $0.90 | $0.72 |
+| CPU only | compute tasks, data prep | $0.10 | $0.08 | — | — |
+| GPU up to 8 GB | 1–3B models, embeddings | $0.25 | $0.20 | $0.40 | $0.32 |
+| GPU 12–16 GB | 7–8B models, image generation | $0.40 | $0.32 | $0.55 | $0.44 |
+| GPU 20–24 GB | 13B models, image and video pipelines | $0.60 | $0.48 | $0.80 | $0.64 |
+| GPU 32–48 GB | 30–34B models, LoRA fine-tuning | $1.10 | $0.88 | $1.30 | $1.04 |
+| GPU 80 GB+ | 70B models, full fine-tunes | $2.00 | $1.60 | $2.20 | $1.76 |
 
-Concretely: a 16 GB card that is busy for a full hour on card-hour work earns $0.16. A 4090 (24 GB) earns about $0.26 an hour while busy, $6 a day if it is busy around the clock. Whether it is busy depends on customer demand, and the Network page shows the real queue. Nobody is paid for hours that weren't worked.
+Concretely: a 16 GB card that is busy for a full hour on card-hour work earns $0.32. A 4090 (24 GB) earns $0.48 an hour while busy, about $11 a day if it is busy around the clock. Whether it is busy depends on customer demand, and the Network page shows the real queue. Nobody is paid for hours that weren't worked.
 
-Why those numbers: hosted APIs serve small open models for a few tenths of a dollar per million tokens, so per-token rates here have to sit near that or nobody buys. Card-hours are where a consumer GPU beats a datacenter: a cloud 24 GB card runs around $1 an hour on demand, so there is room to charge $0.32, pay you $0.26, and still be the cheap option. Check current cloud prices; the gap moves.
+Why those numbers: a cloud 24 GB card runs around $1 an hour on demand and the big GPU marketplaces list 4090s at $0.35–0.70, so $0.60 keeps the business side cheap while paying you $0.48. Per-token rates sit above the cheapest hosted APIs on purpose; tokens are a convenience here, card-hours are the product. Check current cloud prices; the gap moves.
+
+**Floors.** You can set your own rate, but not below the floor for your measured hardware class ($0.05/h for CPU, up to $0.80/h for 80 GB cards; the full table is in [Pricing and credits](/docs/pricing-and-credits)). The floors are set so that a card working at full load earns more than the electricity it burns, even at expensive power prices. If you ask for less, the router raises you to the floor and tells you.
 
 **Your class and rate** are set by the agent from your GPU's memory on startup. You can set your own hourly rate (`NIGHTSHIFT_HOURLY`) or per-1k rate (`NIGHTSHIFT_PRICE`) above the floor. The router sends each job to the cheapest capable node, so a higher rate means fewer jobs. A browser tab with a GPU is classed as 'up to 8 GB' because browsers only run small models and cannot report memory.
 

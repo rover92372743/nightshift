@@ -97,6 +97,15 @@ export class Ledger {
     return row?.id ?? null;
   }
 
+  /** Where the platform fee accrues. One row, created on first use. */
+  ensurePlatformAccount(): string {
+    const accountId = 'platform';
+    if (!this.db.prepare('SELECT id FROM accounts WHERE id = ?').get(accountId)) {
+      this.db.prepare('INSERT INTO accounts (id, kind, label, created_at) VALUES (?,?,?,?)').run(accountId, 'node', 'platform fees', nowMs());
+    }
+    return accountId;
+  }
+
   ensureNodeAccount(nodeId: string): string {
     const accountId = `nacct_${nodeId}`;
     const existing = this.db.prepare('SELECT id FROM accounts WHERE id = ?').get(accountId);

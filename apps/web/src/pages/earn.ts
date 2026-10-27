@@ -9,7 +9,7 @@
 import { NodeClient, TIER_LABEL, PAYOUT_MIN_MICRO, type JobRecord, type Signer } from '@nightshift/shared';
 import { nodeRuntime, isBenched, type NodeSettings } from '../lib/noderuntime';
 import { runBenchmark, fmtScore, type BenchOutcome } from '../lib/bench';
-import { HOURLY_SUGGESTED, type BenchResult } from '@nightshift/shared';
+import { HOURLY_SUGGESTED, PER_1K_SUGGESTED, PER_1K_FLOOR, type BenchResult } from '@nightshift/shared';
 import { h, clear, fmtMs, mountReveals, timeHM, copyText, isPreview, fmtPerM } from '../lib/dom';
 import { API_BASE } from '../lib/api';
 import { loadOrCreateNodeKey, importNodeKey } from '../lib/keys';
@@ -19,7 +19,7 @@ const PREFS = 'nightshift.node.prefs';
 
 type Prefs = NodeSettings;
 function loadPrefs(): Prefs {
-  const d: Prefs = { label: defaultLabel(), price: 250, serveModel: true, background: true, maxOut: 192 };
+  const d: Prefs = { label: defaultLabel(), price: PER_1K_SUGGESTED['gpu-8'], serveModel: true, background: true, maxOut: 192 };
   try {
     return { ...d, ...JSON.parse(localStorage.getItem(PREFS) ?? '{}') };
   } catch {
@@ -131,7 +131,8 @@ export function earnPage(): Page {
 
   // --- the node in this tab ----------------------------------------------------
   const label = h('input', { class: 'input', value: prefs.label, maxlength: 48, id: 'n-label' }) as HTMLInputElement;
-  const price = h('input', { class: 'input', type: 'number', min: 0.2, max: 100, step: 0.05, value: (prefs.price / 1000).toFixed(2), id: 'n-price' }) as HTMLInputElement;
+  const price = h('input', { class: 'input', type: 'number', min: (PER_1K_FLOOR.cpu / 1000).toFixed(2), max: 100, step: 0.01, value: (prefs.price / 1000).toFixed(2), id: 'n-price' }) as HTMLInputElement;
+  const priceHint = h('span', { class: 'small muted' }, '');
   const serveModel = h('input', { type: 'checkbox', checked: prefs.serveModel, id: 'n-model' }) as HTMLInputElement;
   const background = h('input', { type: 'checkbox', checked: prefs.background, id: 'n-bg' }) as HTMLInputElement;
   const modelLabel = h('span', null, 'Serve model tasks on this GPU (WebGPU)');
@@ -147,11 +148,16 @@ export function earnPage(): Page {
     benchOut.hidden = !o;
     if (!o) return;
     const hourly = HOURLY_SUGGESTED[o.tier];
+    // the price field follows the measured tier: suggested value, floor as minimum
+    const floor1k = PER_1K_FLOOR[o.tier] / 1000;
+    price.min = floor1k.toFixed(2);
+    if (Number(price.value) < floor1k || Math.round(Number(price.value) * 1000) === prefs.price) price.value = (PER_1K_SUGGESTED[o.tier] / 1000).toFixed(2);
+    priceHint.textContent = `min $${floor1k.toFixed(2)} for this tier`;
     benchOut.replaceChildren(
       h('div', { class: 'bench-row' }, h('span', { class: 'bench-k' }, 'tier'), h('b', null, TIER_LABEL[o.tier])),
       h('div', { class: 'bench-row' }, h('span', { class: 'bench-k' }, 'measured'), h('span', null, `${fmtScore(o.score)} · ${o.result.kind === 'webgpu' ? 'WebGPU' : 'CPU'}${o.gpu ? ` · ${o.gpu}` : ''}`)),
-      h('div', { class: 'bench-row' }, h('span', { class: 'bench-k' }, 'suggested'), h('span', null, `$${(hourly / 1e6).toFixed(2)} per card-hour`)),
-      h('p', { class: 'small muted', style: { margin: '6px 0 0' } }, o.tier === 'cpu' ? 'No usable GPU was found, so this tab will take compute tasks only. Chrome or Edge on a machine with a graphics card measures higher.' : 'Checked by the router when you start. Real job timings keep the tier honest after that.'),
+      h('div', { class: 'bench-row' }, h('span', { class: 'bench-k' }, 'you earn'), h('span', null, `$${(hourly / 1e6).toFixed(2)} per card-hour while working`)),
+      h('p', { class: 'small muted', style: { margin: '6px 0 0' } }, o.tier === 'cpu' ? (!window.isSecureContext ? 'Measured on the CPU: the browser hides the GPU on plain http. Load the site over https and measure again.' : 'No usable GPU was found, so this tab will take compute tasks only. Chrome or Edge on a machine with a graphics card measures higher.') : 'Checked by the router when you start. Real job timings keep the tier honest after that.'),
     );
   }
   async function measure(): Promise<void> {
@@ -193,7 +199,11 @@ export function earnPage(): Page {
   const gpuLine = h('p', { class: 'small muted' }, 'Checking for a GPU…');
 
   void nodeRuntime.detectGpu().then((g) => {
-    gpuLine.textContent = g.available ? `GPU: ${g.name}. Model tasks will run on it through WebGPU.` : 'No WebGPU in this browser, so this tab can take compute tasks only. Chrome or Edge on a machine with a graphics card can serve model tasks.';
+    gpuLine.textContent = g.available
+      ? `GPU: ${g.name}. Model tasks will run on it through WebGPU.`
+      : !window.isSecureContext
+        ? 'This page is loaded over plain http, and browsers only allow GPU access on https. Open the site over https to use your graphics card; until then this tab can take compute tasks only.'
+        : 'No WebGPU in this browser, so this tab can take compute tasks only. Chrome or Edge on a machine with a graphics card can serve model tasks.';
     if (!g.available) {
       serveModel.checked = false;
       serveModel.disabled = true;
@@ -285,7 +295,7 @@ export function earnPage(): Page {
           gpuLine,
           benchCard,
           h('b', { class: 'small' }, 'Step 2 · Start'),
-          h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Node name on the map'), label), h('label', { class: 'field' }, h('span', null, 'Your price, $ per 1M tokens'), price)),
+          h('div', { class: 'grid-2', style: { gap: '12px' } }, h('label', { class: 'field' }, h('span', null, 'Node name on the map'), label), h('label', { class: 'field' }, h('span', null, 'Your price, $ per 1M tokens ', priceHint), price)),
           h('label', { class: 'row' }, serveModel, modelLabel),
           h('label', { class: 'row' }, background, h('span', null, 'Keep working when this tab is in the background')),
           h('div', { class: 'row' }, startBtn, stopBtn),

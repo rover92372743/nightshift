@@ -25,6 +25,9 @@ import {
   LEASE_MS,
   MAX_ATTEMPTS,
   PRICE_FLOOR_PER_1K,
+  HOURLY_FLOOR,
+  withFee,
+  nodeShareOf,
 } from '@nightshift/shared';
 import { sha256Hex, sign, verify, type KeyPair } from './crypto.js';
 import type { Ledger } from './ledger.js';
@@ -56,13 +59,14 @@ export class Router {
     // Quote against the cheapest node that could take it right now. If none
     // is online we still accept the job at the floor and let it wait.
     const cands = this.nodes.candidates(input.workload, input.model, promptChars(input), input.maxOutputTokens ?? 0);
+    // The hold is the node's price plus the platform fee: what the business pays.
     let priceMicro: number;
     if (input.billing === 'time') {
-      const perHour = cands.length ? Math.min(...cands.map((n) => n.capabilities.pricePerHour ?? Infinity)) : 20_000;
-      priceMicro = Math.max(1, Math.ceil(((input.maxSeconds ?? 60) * perHour) / 3600));
+      const perHour = cands.length ? Math.min(...cands.map((n) => n.capabilities.pricePerHour ?? Infinity)) : HOURLY_FLOOR.cpu;
+      priceMicro = withFee(Math.max(1, Math.ceil(((input.maxSeconds ?? 60) * perHour) / 3600)));
     } else {
       const per1k = cands.length ? Math.min(...cands.map((n) => n.capabilities.pricePer1k)) : PRICE_FLOOR_PER_1K;
-      priceMicro = Math.max(1, Math.ceil((units * per1k) / 1000));
+      priceMicro = withFee(Math.max(1, Math.ceil((units * per1k) / 1000)));
     }
 
     const job: JobRecord = {
@@ -298,10 +302,14 @@ export class Router {
       // node's figure if it's within a couple of seconds' worth and under the hold.
       const perHour = node.capabilities.pricePerHour ?? 20_000;
       const slack = Math.ceil((2 * perHour) / 3600) + 1;
-      const ok = job.input.billing === 'time' && body.costMicro <= job.priceMicro && Math.abs(body.costMicro - costMicro) <= slack;
+      const ok = job.input.billing === 'time' && withFee(body.costMicro) <= job.priceMicro && Math.abs(body.costMicro - costMicro) <= slack;
       if (!ok) throw new JobError(400, `receipt cost mismatch (expected ${costMicro})`);
     }
+    // The receipt carries the node's price (what the node signed and is paid);
+    // the business is charged that plus the platform fee, never more than the hold.
     const settledMicro = body.costMicro;
+    const chargedMicro = Math.min(job.priceMicro, withFee(settledMicro));
+    const feeMicro = chargedMicro - settledMicro;
 
     const receipt: Receipt = {
       id: id('rcpt'),
@@ -316,10 +324,11 @@ export class Router {
     const tx = this.db.transaction(() => {
       this.db
         .prepare("UPDATE jobs SET status='done', output=?, cost_micro=?, finished_at=? WHERE id=?")
-        .run(JSON.stringify({ ...output, units }), settledMicro, t, job.id);
-      const refund = job.priceMicro - settledMicro;
+        .run(JSON.stringify({ ...output, units }), chargedMicro, t, job.id);
+      const refund = job.priceMicro - chargedMicro;
       if (refund > 0) this.ledger.post(job.requesterId, refund, 'refund', job.id);
       this.ledger.post(this.nodes.accountId(nodeId), settledMicro, 'earn', job.id);
+      if (feeMicro > 0) this.ledger.post(this.ledger.ensurePlatformAccount(), feeMicro, 'earn', job.id);
       this.nodes.recordDone(nodeId, units, settledMicro);
       if (job.input.workload === 'llm') this.nodes.observeThroughput(nodeId, output.outputTokens ?? 0, output.durationMs ?? 0);
       this.db
@@ -349,9 +358,9 @@ export class Router {
     if (job.input.billing === 'time') {
       const seconds = Math.max(1, Math.ceil((nowMs() - (job.startedAt ?? job.assignedAt ?? job.createdAt)) / 1000));
       const perHour = node.capabilities.pricePerHour ?? 20_000;
-      return Math.min(job.priceMicro, Math.max(1, Math.ceil((seconds * perHour) / 3600)));
+      return Math.min(nodeShareOf(job.priceMicro), Math.max(1, Math.ceil((seconds * perHour) / 3600)));
     }
-    return Math.min(job.priceMicro, Math.max(1, Math.ceil((units * node.capabilities.pricePer1k) / 1000)));
+    return Math.min(nodeShareOf(job.priceMicro), Math.max(1, Math.ceil((units * node.capabilities.pricePer1k) / 1000)));
   }
 
   private checkUnits(job: JobRecord, output: JobOutput): number {

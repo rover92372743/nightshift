@@ -7,7 +7,7 @@
 
 import nacl from 'tweetnacl';
 import type { JobInput, JobOutput, JobRecord, LiveEvent, NetworkStats, NodeCapabilities, NodeClass, NodeRecord, PublicNode, Receipt, ReceiptBody } from '@nightshift/shared';
-import { canonical, computeTask, verifyBench, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, type HardwareTier, type RegionKey } from '@nightshift/shared';
+import { canonical, computeTask, verifyBench, withFee, nodeShareOf, HOURLY_FLOOR, PER_1K_FLOOR, PER_1K_SUGGESTED, COMPUTE_ROUNDS_PER_UNIT, FREE_GRANT_MICRO, PAYOUT_MIN_MICRO, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, type HardwareTier, type RegionKey } from '@nightshift/shared';
 
 const enc = new TextEncoder();
 function b64u(bytes: Uint8Array): string {
@@ -117,7 +117,7 @@ export class MockRouter {
       const [gpu, vram] = GPUS[(i * 7) % GPUS.length];
       const tier = tierForVram(vram);
       const native = i % 3 !== 0;
-      const price = { cpu: 250, 'gpu-8': 300, 'gpu-16': 420, 'gpu-24': 620, 'gpu-48': 1100, 'gpu-80': 1900 }[tier] + ((i * 37) % 90);
+      const price = PER_1K_SUGGESTED[tier] + ((i * 37) % 120);
       this.simNode(native ? 'native' : 'browser', `${NAMES[i % NAMES.length]}-${100 + ((i * 53) % 900)}`, {
         workloads: native ? ['llm', 'compute'] : ['compute'],
         models: native ? (vram >= 16 ? ['qwen2.5-0.5b-instruct', 'qwen2.5-7b-instruct'] : ['qwen2.5-0.5b-instruct']) : [],
@@ -131,8 +131,8 @@ export class MockRouter {
       });
     }
     // Two tabs with no model so compute test jobs have cheap takers.
-    this.simNode('browser', 'chrome on windows', { workloads: ['compute'], models: [], maxPromptChars: 6000, maxOutputTokens: 128, pricePer1k: 210, pricePerHour: 20_000, tokensPerSec: 9, hardware: { tier: 'cpu' }, region: 'toronto' });
-    this.simNode('browser', 'firefox on mac', { workloads: ['llm', 'compute'], models: ['qwen2.5-0.5b-instruct'], maxPromptChars: 6000, maxOutputTokens: 192, pricePer1k: 230, pricePerHour: 90_000, tokensPerSec: 18, hardware: { gpu: 'Apple M1', tier: 'gpu-8' }, region: 'vancouver' });
+    this.simNode('browser', 'chrome on windows', { workloads: ['compute'], models: [], maxPromptChars: 6000, maxOutputTokens: 128, pricePer1k: 300, pricePerHour: 80_000, tokensPerSec: 9, hardware: { tier: 'cpu' }, region: 'toronto' });
+    this.simNode('browser', 'firefox on mac', { workloads: ['llm', 'compute'], models: ['qwen2.5-0.5b-instruct'], maxPromptChars: 6000, maxOutputTokens: 192, pricePer1k: 330, pricePerHour: 200_000, tokensPerSec: 18, hardware: { gpu: 'Apple M1', tier: 'gpu-8' }, region: 'vancouver' });
     // Two simulated operators with earnings and a payout waiting, so the
     // operator view in the preview has something to review.
     {
@@ -165,7 +165,7 @@ export class MockRouter {
     // Occasionally a simulated node comes and goes so the map has some life.
     setInterval(() => {
       if (Math.random() < 0.4) {
-        const n = this.simNode('browser', ['safari on mac', 'edge on linux', 'brave on windows'][Math.floor(Math.random() * 3)] + '-' + Math.floor(100 + Math.random() * 900), { workloads: ['compute'], models: [], maxPromptChars: 4000, maxOutputTokens: 128, pricePer1k: 200 + Math.floor(Math.random() * 90), pricePerHour: 20_000, hardware: { tier: 'cpu' }, region: (['dublin', 'miami', 'denver', 'taipei', 'melbourne', 'helsinki'] as RegionKey[])[Math.floor(Math.random() * 6)] });
+        const n = this.simNode('browser', ['safari on mac', 'edge on linux', 'brave on windows'][Math.floor(Math.random() * 3)] + '-' + Math.floor(100 + Math.random() * 900), { workloads: ['compute'], models: [], maxPromptChars: 4000, maxOutputTokens: 128, pricePer1k: 300 + Math.floor(Math.random() * 90), pricePerHour: 80_000, hardware: { tier: 'cpu' }, region: (['dublin', 'miami', 'denver', 'taipei', 'melbourne', 'helsinki'] as RegionKey[])[Math.floor(Math.random() * 6)] });
         setTimeout(() => {
           if (n.status !== 'busy') {
             n.status = 'offline';
@@ -249,11 +249,11 @@ export class MockRouter {
     const cands = this.candidates(input);
     let price: number;
     if (billing === 'time') {
-      const perHour = cands.length ? Math.min(...cands.map((n) => n.caps.pricePerHour ?? 20_000)) : 20_000;
-      price = Math.max(1, Math.ceil(((maxSeconds ?? 60) * perHour) / 3600));
+      const perHour = cands.length ? Math.min(...cands.map((n) => n.caps.pricePerHour ?? HOURLY_FLOOR.cpu)) : HOURLY_FLOOR.cpu;
+      price = withFee(Math.max(1, Math.ceil(((maxSeconds ?? 60) * perHour) / 3600)));
     } else {
       const per1k = cands.length ? Math.min(...cands.map((n) => n.caps.pricePer1k)) : PRICE_FLOOR_PER_1K;
-      price = Math.max(1, Math.ceil((units * per1k) / 1000));
+      price = withFee(Math.max(1, Math.ceil((units * per1k) / 1000)));
     }
     if (!demo) {
       if (this.balance < price) throw new HttpError(402, `not enough credits: need ${price}, have ${this.balance}`);
@@ -313,9 +313,9 @@ export class MockRouter {
   private costFor(job: JobRecord, node: MNode, units: number): number {
     if (job.input.billing === 'time') {
       const seconds = Math.max(1, Math.ceil((Date.now() - (job.startedAt ?? job.createdAt)) / 1000));
-      return Math.min(job.priceMicro, Math.max(1, Math.ceil((seconds * (node.caps.pricePerHour ?? 20_000)) / 3600)));
+      return Math.min(nodeShareOf(job.priceMicro), Math.max(1, Math.ceil((seconds * (node.caps.pricePerHour ?? 20_000)) / 3600)));
     }
-    return Math.min(job.priceMicro, Math.max(1, Math.ceil((units * node.caps.pricePer1k) / 1000)));
+    return Math.min(nodeShareOf(job.priceMicro), Math.max(1, Math.ceil((units * node.caps.pricePer1k) / 1000)));
   }
 
   async complete(nodeId: string, jobId: string, output: JobOutput, body: ReceiptBody, nodeSig: string): Promise<Receipt> {
@@ -341,14 +341,15 @@ export class MockRouter {
     const cost = this.costFor(job, node, units);
     if (body.costMicro !== cost) {
       const slack = Math.ceil((2 * (node.caps.pricePerHour ?? 20_000)) / 3600) + 1;
-      if (!(job.input.billing === 'time' && body.costMicro <= job.priceMicro && Math.abs(body.costMicro - cost) <= slack)) throw new HttpError(400, `receipt cost mismatch (expected ${cost})`);
+      if (!(job.input.billing === 'time' && withFee(body.costMicro) <= job.priceMicro && Math.abs(body.costMicro - cost) <= slack)) throw new HttpError(400, `receipt cost mismatch (expected ${cost})`);
     }
     const receipt: Receipt = { id: id('rcpt'), body, nodeSig, routerSig: sign(canon + '.' + nodeSig, this.rk.secretKey), routerKey: this.routerKey, nodeKey: node.pk };
     job.status = 'done';
     job.output = output;
-    job.costMicro = body.costMicro;
+    const charged = Math.min(job.priceMicro, withFee(body.costMicro)); // node price plus the platform fee
+    job.costMicro = charged;
     job.finishedAt = Date.now();
-    const refund = job.priceMicro - body.costMicro;
+    const refund = job.priceMicro - charged;
     if (job.requesterId !== 'demo') {
       this.balance += refund;
       if (refund) this.ledger.unshift({ id: id('lg'), deltaMicro: refund, kind: 'refund', ref: job.id, createdAt: Date.now() });
@@ -563,7 +564,12 @@ export class MockRouter {
         }
       } else if (n) bench = n.bench;
       else return { status: 400, body: err('benchmark required: fetch a ticket from /v1/benchmark/ticket, run it, and register with the result') };
-      if (bench && b.capabilities) b.capabilities = { ...b.capabilities, hardware: { ...(b.capabilities.hardware ?? {}), tier: bench.tier, gpu: b.capabilities.hardware?.gpu ?? bench.gpu }, pricePerHour: b.capabilities.pricePerHour ?? HOURLY_SUGGESTED[bench.tier] };
+      if (bench && b.capabilities) {
+        const tier = bench.tier;
+        b.capabilities = { ...b.capabilities, hardware: { ...(b.capabilities.hardware ?? {}), tier, gpu: b.capabilities.hardware?.gpu ?? bench.gpu } };
+        b.capabilities.pricePerHour = Math.max(HOURLY_FLOOR[tier], Number(b.capabilities.pricePerHour ?? HOURLY_SUGGESTED[tier]));
+        b.capabilities.pricePer1k = Math.max(PER_1K_FLOOR[tier], Number(b.capabilities.pricePer1k ?? PER_1K_SUGGESTED[tier]));
+      }
       if (!n) {
         n = { id: id('nd'), cls: b.class ?? 'browser', label: String(b.label ?? 'unnamed').slice(0, 48), pk: b.publicKey, caps: { ...b.capabilities, pricePer1k: Math.max(PRICE_FLOOR_PER_1K, Number(b.capabilities?.pricePer1k ?? PRICE_FLOOR_PER_1K)) }, status: 'online', jobsDone: 0, jobsFailed: 0, units: 0, earned: 0, balance: 0, simulated: false, lastSeen: Date.now(), uptime: 0, payouts: [] };
         this.nodes.set(n.id, n);

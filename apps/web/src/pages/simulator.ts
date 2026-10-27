@@ -37,15 +37,15 @@ function rnd(): number {
  * the big ones busy).
  */
 const FLEET: Omit<SimNode, 'id' | 'busy'>[] = [
-  { label: 'firefox on mac', cls: 'browser', gpu: 'Apple M1 · 8 GB', models: [Q05, SMOL], maxOut: 192, maxPrompt: 6000, price: 230, tps: 17 },
-  { label: 'chrome on windows', cls: 'browser', gpu: 'RTX 3060 · 12 GB', models: [Q05, SMOL], maxOut: 256, maxPrompt: 8000, price: 270, tps: 24 },
-  { label: 'edge on linux', cls: 'browser', gpu: 'RTX 4070 · 12 GB', models: [Q05, SMOL, L8], maxOut: 512, maxPrompt: 12000, price: 340, tps: 31 },
-  { label: 'mini pc (cli)', cls: 'native', gpu: 'RTX 4060 · 8 GB', models: [Q05, SMOL], maxOut: 768, maxPrompt: 16000, price: 410, tps: 60 },
-  { label: 'ryzen box (cli)', cls: 'native', gpu: 'RTX 3080 · 10 GB', models: [Q05, SMOL, L8], maxOut: 1024, maxPrompt: 16000, price: 620, tps: 75 },
-  { label: 'studio m2 (cli)', cls: 'native', gpu: 'M2 Max · 32 GB', models: [Q05, SMOL, Q7, L8], maxOut: 1024, maxPrompt: 16000, price: 780, tps: 65 },
-  { label: '4090 rig (cli)', cls: 'native', gpu: 'RTX 4090 · 24 GB', models: [Q05, SMOL, Q7, L8], maxOut: 2048, maxPrompt: 16000, price: 950, tps: 140 },
-  { label: 'rented a10g', cls: 'cloud', gpu: 'A10G · 24 GB', models: [Q7, L8], maxOut: 2048, maxPrompt: 16000, price: 2340, tps: 96 },
-  { label: 'vendor api', cls: 'external', gpu: 'hosted', models: [L8], maxOut: 2048, maxPrompt: 16000, price: 3940, tps: 53 },
+  { label: 'firefox on mac', cls: 'browser', gpu: 'Apple M1 · 8 GB', models: [Q05, SMOL], maxOut: 192, maxPrompt: 6000, price: 320, tps: 17 },
+  { label: 'chrome on windows', cls: 'browser', gpu: 'RTX 3060 · 12 GB', models: [Q05, SMOL], maxOut: 256, maxPrompt: 8000, price: 360, tps: 24 },
+  { label: 'edge on linux', cls: 'browser', gpu: 'RTX 4070 · 12 GB', models: [Q05, SMOL, L8], maxOut: 512, maxPrompt: 12000, price: 450, tps: 31 },
+  { label: 'mini pc (cli)', cls: 'native', gpu: 'RTX 4060 · 8 GB', models: [Q05, SMOL], maxOut: 768, maxPrompt: 16000, price: 400, tps: 60 },
+  { label: 'ryzen box (cli)', cls: 'native', gpu: 'RTX 3080 · 10 GB', models: [Q05, SMOL, L8], maxOut: 1024, maxPrompt: 16000, price: 560, tps: 75 },
+  { label: 'studio m2 (cli)', cls: 'native', gpu: 'M2 Max · 32 GB', models: [Q05, SMOL, Q7, L8], maxOut: 1024, maxPrompt: 16000, price: 700, tps: 65 },
+  { label: '4090 rig (cli)', cls: 'native', gpu: 'RTX 4090 · 24 GB', models: [Q05, SMOL, Q7, L8], maxOut: 2048, maxPrompt: 16000, price: 820, tps: 140 },
+  { label: 'rented a10g', cls: 'cloud', gpu: 'A10G · 24 GB', models: [Q7, L8], maxOut: 2048, maxPrompt: 16000, price: 1600, tps: 96 },
+  { label: 'vendor api', cls: 'external', gpu: 'hosted', models: [L8], maxOut: 2048, maxPrompt: 16000, price: 2800, tps: 53 },
 ];
 
 function makeNodes(): SimNode[] {

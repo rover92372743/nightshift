@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import nacl from 'tweetnacl';
 import { buildApp, buildContext, type Ctx } from '../src/app.js';
-import { canonical, computeTask, FREE_GRANT_MICRO, benchElement, sampleIndices, type ReceiptBody } from '@nightshift/shared';
+import { canonical, computeTask, FREE_GRANT_MICRO, benchElement, sampleIndices, nodeShareOf, withFee, type ReceiptBody } from '@nightshift/shared';
 import { sha256Hex, b64u } from '../src/core/crypto.js';
 import type { FastifyInstance } from 'fastify';
 import fs from 'node:fs';
@@ -80,7 +80,7 @@ function makeNode(app: FastifyInstance) {
 
 function receiptFor(job: any, node: { id: string; sign: (m: string) => string }, output: any, nodeClass: string, pricePer1k: number) {
   const outputHash = sha256Hex(job.input.workload === 'llm' ? output.text : output.digest);
-  const costMicro = Math.min(job.priceMicro, Math.max(1, Math.ceil((output.units * pricePer1k) / 1000)));
+  const costMicro = Math.min(nodeShareOf(job.priceMicro), Math.max(1, Math.ceil((output.units * pricePer1k) / 1000)));
   const body: ReceiptBody = {
     v: 1,
     jobId: job.id,
@@ -110,10 +110,10 @@ test('anonymous session gets a grant and is charged, refunded and settled correc
     const cookie = submit.headers['set-cookie'] as string;
     const job = submit.json();
     assert.equal(job.status, 'queued');
-    assert.equal(job.priceMicro, 30); // 100 tokens * 300/1k
+    assert.equal(job.priceMicro, withFee(30)); // 100 tokens * 300/1k, plus the 20% platform fee → 38
 
     const me1 = (await app.inject({ method: 'GET', url: '/v1/me', headers: { cookie } })).json();
-    assert.equal(me1.balanceMicro, FREE_GRANT_MICRO - 30);
+    assert.equal(me1.balanceMicro, FREE_GRANT_MICRO - withFee(30));
 
     const claimed = await node.claim();
     assert.equal(claimed.statusCode, 200);
@@ -128,10 +128,12 @@ test('anonymous session gets a grant and is charged, refunded and settled correc
     assert.equal(receipt.body.costMicro, 2); // ceil(4*300/1000)
 
     const me2 = (await app.inject({ method: 'GET', url: '/v1/me', headers: { cookie } })).json();
-    assert.equal(me2.balanceMicro, FREE_GRANT_MICRO - 2);
+    // business pays the node's 2 plus the fee (3 total); the node gets 2; the platform gets 1
+    assert.equal(me2.balanceMicro, FREE_GRANT_MICRO - withFee(2));
 
     const nodeMe = (await node.me()).json();
     assert.equal(nodeMe.balanceMicro, 2);
+    assert.equal(ctx.ledger.balance('platform'), withFee(2) - 2);
     assert.equal(nodeMe.node.jobsDone, 1);
 
     const v = (await app.inject({ method: 'POST', url: '/v1/receipts/verify', payload: { receipt } })).json();
@@ -326,21 +328,21 @@ test('time billing charges router-measured seconds at the hourly rate, capped at
     const sub = await app.inject({ method: 'POST', url: '/v1/jobs', payload: { workload: 'compute', rounds: 2000, billing: 'time', maxSeconds: 10 } });
     const cookie = sub.headers['set-cookie'] as string;
     const job0 = sub.json();
-    assert.equal(job0.priceMicro, 1000); // 10 s × 100 µcr
+    assert.equal(job0.priceMicro, withFee(1000)); // 10 s × 100 µcr, plus fee
     const job = (await node.claim()).json().job;
     await new Promise((r) => setTimeout(r, 1100));
     const digest = await computeTask(job.input.seed, job.input.rounds);
     const output = { digest, outputTokens: 0, units: 2, durationMs: 1100 };
     // Mirror what the node client does: seconds since the router's startedAt.
     const seconds = Math.max(1, Math.ceil((Date.now() - job.startedAt) / 1000));
-    const costMicro = Math.min(job.priceMicro, seconds * 100);
+    const costMicro = Math.min(nodeShareOf(job.priceMicro), seconds * 100);
     const outputHash = sha256Hex(digest);
     const body: ReceiptBody = { v: 1, jobId: job.id, nodeId: node.id, nodeClass: 'browser', workload: 'compute', model: 'hashchain-v1', inputHash: job.inputHash, outputHash, outputTokens: 0, units: 2, startedAt: job.startedAt, finishedAt: Date.now(), costMicro };
     const r = await node.complete(job.id, { output, receipt: body, nodeSig: node.sign(canonical(body)) });
     assert.equal(r.statusCode, 200, r.body);
     assert.ok(r.json().receipt.body.costMicro >= 100 && r.json().receipt.body.costMicro <= 300);
     const me = (await app.inject({ method: 'GET', url: '/v1/me', headers: { cookie } })).json();
-    assert.equal(me.balanceMicro, FREE_GRANT_MICRO - r.json().receipt.body.costMicro);
+    assert.equal(me.balanceMicro, FREE_GRANT_MICRO - withFee(r.json().receipt.body.costMicro));
   } finally {
     await close();
   }
@@ -379,5 +381,21 @@ test('registration needs a verified benchmark; the tier comes from it', async ()
   const n2 = makeNode(app);
   const cpu = await n2.register({}, 'browser', await n2.benchmark({ kind: 'cpu', passes: 400 }));
   assert.equal(cpu.node.capabilities.hardware.tier, 'cpu');
+  await close();
+});
+
+test('price floors follow the measured tier: a node asking for less is raised to the floor', async () => {
+  const { app, close } = await fresh();
+  const n = makeNode(app);
+  // 40 passes in 200 ms measures as gpu-8; the node claims gpu-80 and asks for pocket change
+  const r = await n.register({ pricePer1k: 1, pricePerHour: 1000, hardware: { tier: 'gpu-80' } }, 'browser', await n.benchmark({ passes: 40, elapsedMs: 200 }));
+  assert.equal(r.node.capabilities.hardware.tier, 'gpu-8');
+  assert.equal(r.node.capabilities.pricePer1k, 200);
+  assert.equal(r.node.capabilities.pricePerHour, 120_000);
+  // asking for more than the floor is kept as is
+  const n2 = makeNode(app);
+  const r2 = await n2.register({ pricePer1k: 900, pricePerHour: 500_000 }, 'browser', await n2.benchmark({ passes: 40, elapsedMs: 200 }));
+  assert.equal(r2.node.capabilities.pricePer1k, 900);
+  assert.equal(r2.node.capabilities.pricePerHour, 500_000);
   await close();
 });

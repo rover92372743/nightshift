@@ -18,7 +18,7 @@ export const config = {
   /** Comma separated origins allowed to hit the API from a browser. */
   corsOrigins: env('CORS_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173').split(','),
   /** If set, the API also serves the built web app from this folder. */
-  staticDir: env('NIGHTSHIFT_STATIC', ''),
+  staticDir: env('NIGHTSHIFT_STATIC', '') ? path.resolve(process.cwd(), env('NIGHTSHIFT_STATIC', '')) : '',
   /** Requests per minute per IP for the public inference endpoint. */
   inferRpm: Number(env('INFER_RPM', '20')),
   /** Cloud/external tiers are off unless explicitly enabled. See docs/payouts-and-tiers.md. */

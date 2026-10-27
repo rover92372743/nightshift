@@ -1,7 +1,7 @@
 import type { Db } from '../db/index.js';
 import { id, nowMs } from '../db/index.js';
 import type { BenchResult, BenchTicket, HardwareTier, NodeCapabilities, NodeClass, NodeRecord, PublicNode, Workload } from '@nightshift/shared';
-import { OFFLINE_AFTER_MS, PRICE_FLOOR_PER_1K, HOURLY_SUGGESTED, tierForVram, isRegion, verifyBench, tierForScore, TOKENS_TIERS, BENCH_TICKET_TTL_MS } from '@nightshift/shared';
+import { OFFLINE_AFTER_MS, HOURLY_SUGGESTED, HOURLY_FLOOR, PER_1K_SUGGESTED, PER_1K_FLOOR, tierForVram, isRegion, verifyBench, tierForScore, TOKENS_TIERS, BENCH_TICKET_TTL_MS } from '@nightshift/shared';
 import { randomBytes } from 'node:crypto';
 import type { Live } from './live.js';
 import type { Ledger } from './ledger.js';
@@ -43,7 +43,12 @@ export class Nodes {
     if (bench) {
       caps.hardware = { ...(caps.hardware ?? {}), tier: bench.tier, gpu: caps.hardware?.gpu ?? bench.gpu };
       if (input.capabilities.pricePerHour === undefined) caps.pricePerHour = HOURLY_SUGGESTED[bench.tier];
+      if (input.capabilities.pricePer1k === undefined) caps.pricePer1k = PER_1K_SUGGESTED[bench.tier];
     }
+    // Floors follow the measured tier, so a 4090 can't price itself like a laptop.
+    const tier = caps.hardware?.tier ?? 'cpu';
+    caps.pricePerHour = Math.max(HOURLY_FLOOR[tier], caps.pricePerHour ?? HOURLY_SUGGESTED[tier]);
+    caps.pricePer1k = Math.max(PER_1K_FLOOR[tier], caps.pricePer1k);
 
     if (existing) {
       // Same key coming back: treat as a reconnect, keep the counters.
@@ -207,10 +212,10 @@ function sanitiseCaps(c: Partial<NodeCapabilities>): NodeCapabilities {
   return {
     workloads,
     models: (c.models ?? []).map(String).slice(0, 16),
-    pricePerHour: Math.max(10_000, Math.floor(c.pricePerHour ?? HOURLY_SUGGESTED[tier])),
+    pricePerHour: Math.max(HOURLY_FLOOR.cpu, Math.floor(c.pricePerHour ?? HOURLY_SUGGESTED[tier])),
     maxPromptChars: clamp(c.maxPromptChars ?? 4000, 256, 32_000),
     maxOutputTokens: clamp(c.maxOutputTokens ?? 256, 16, 2048),
-    pricePer1k: Math.max(PRICE_FLOOR_PER_1K, Math.floor(c.pricePer1k ?? PRICE_FLOOR_PER_1K)),
+    pricePer1k: Math.max(PER_1K_FLOOR.cpu, Math.floor(c.pricePer1k ?? PER_1K_SUGGESTED[tier])),
     tokensPerSec: c.tokensPerSec ? clamp(c.tokensPerSec, 0.1, 5000) : undefined,
     hardware: c.hardware
       ? { gpu: c.hardware.gpu ? String(c.hardware.gpu).slice(0, 64) : undefined, vramGb: c.hardware.vramGb ? clamp(c.hardware.vramGb, 0, 1024) : undefined, tier: c.hardware.tier }

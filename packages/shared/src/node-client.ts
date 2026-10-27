@@ -4,7 +4,7 @@
 
 import type { JobInput, JobOutput, JobRecord, NodeCapabilities, NodeClass, NodeRecord, Receipt, ReceiptBody } from './index.js';
 import type { BenchResult, BenchTicket } from './bench.js';
-import { canonical } from './index.js';
+import { canonical, nodeShareOf } from './index.js';
 
 export interface Signer {
   publicKey: string; // base64url
@@ -116,8 +116,8 @@ export class NodeClient {
     if (job.input.billing === 'time') {
       // Router time: startedAt came from the router's clock at claim.
       const seconds = Math.max(1, Math.ceil((finishedAt - (job.startedAt ?? finishedAt - output.durationMs)) / 1000));
-      costMicro = Math.min(job.priceMicro, Math.max(1, Math.ceil((seconds * (pricePerHour ?? 20_000)) / 3600)));
-    } else costMicro = Math.min(job.priceMicro, Math.max(1, Math.ceil((output.units * pricePer1k) / 1000)));
+      costMicro = Math.min(nodeShareOf(job.priceMicro), Math.max(1, Math.ceil((seconds * (pricePerHour ?? 20_000)) / 3600)));
+    } else costMicro = Math.min(nodeShareOf(job.priceMicro), Math.max(1, Math.ceil((output.units * pricePer1k) / 1000)));
     const body: ReceiptBody = {
       v: 1,
       jobId: job.id,

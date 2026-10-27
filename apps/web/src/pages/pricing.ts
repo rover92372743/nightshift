@@ -3,21 +3,25 @@
 // open models and sit close to the hosted market, where the real competition
 // is. The live floor at the top is what the network quotes right now.
 
+import { HOURLY_SUGGESTED, PER_1K_SUGGESTED, withFee, type HardwareTier } from '@nightshift/shared';
 import type { LiveEvent } from '@nightshift/shared';
 import { h, mountReveals } from '../lib/dom';
 import { live } from '../lib/live';
 import { api } from '../lib/api';
 import type { Page } from '../main';
 
-// List rates, USD. Node operators receive 80% of these (see docs/earning.md).
-// Hourly is the primary product; per-million-token is for small open models.
-export const RATES: { tier: string; label: string; perHour: number; perMTok: number | null; examples: string }[] = [
-  { tier: 'cpu', label: 'CPU nodes', perHour: 0.03, perMTok: null, examples: 'compute tasks, data prep' },
-  { tier: 'gpu-8', label: 'GPU up to 8 GB', perHour: 0.12, perMTok: 0.15, examples: '1–3B models, embeddings, small image models' },
-  { tier: 'gpu-16', label: 'GPU 12–16 GB', perHour: 0.2, perMTok: 0.2, examples: '7–8B models, Stable Diffusion, fine-tuning small models' },
-  { tier: 'gpu-24', label: 'GPU 20–24 GB', perHour: 0.32, perMTok: 0.3, examples: '13B models, quantised 30B, video and image pipelines' },
-  { tier: 'gpu-48', label: 'GPU 32–48 GB', perHour: 0.75, perMTok: 0.5, examples: '30–34B models, LoRA fine-tuning' },
-  { tier: 'gpu-80', label: 'GPU 80 GB+', perHour: 1.75, perMTok: 0.9, examples: '70B models, long contexts, full fine-tunes' },
+// List rates, USD: the node's suggested rate plus the platform fee, straight
+// from the shared constants so this page can't drift from what the router
+// charges. Node operators receive 80% of these.
+const usdH = (t: HardwareTier) => withFee(HOURLY_SUGGESTED[t]) / 1e6;
+const usdM = (t: HardwareTier) => withFee(PER_1K_SUGGESTED[t]) / 1000;
+export const RATES: { tier: HardwareTier; label: string; perHour: number; perMTok: number | null; examples: string }[] = [
+  { tier: 'cpu', label: 'CPU nodes', perHour: usdH('cpu'), perMTok: null, examples: 'compute tasks, data prep' },
+  { tier: 'gpu-8', label: 'GPU up to 8 GB', perHour: usdH('gpu-8'), perMTok: usdM('gpu-8'), examples: '1–3B models, embeddings, small image models' },
+  { tier: 'gpu-16', label: 'GPU 12–16 GB', perHour: usdH('gpu-16'), perMTok: usdM('gpu-16'), examples: '7–8B models, Stable Diffusion, fine-tuning small models' },
+  { tier: 'gpu-24', label: 'GPU 20–24 GB', perHour: usdH('gpu-24'), perMTok: usdM('gpu-24'), examples: '13B models, quantised 30B, video and image pipelines' },
+  { tier: 'gpu-48', label: 'GPU 32–48 GB', perHour: usdH('gpu-48'), perMTok: usdM('gpu-48'), examples: '30–34B models, LoRA fine-tuning' },
+  { tier: 'gpu-80', label: 'GPU 80 GB+', perHour: usdH('gpu-80'), perMTok: usdM('gpu-80'), examples: '70B models, long contexts, full fine-tunes' },
 ];
 
 export function pricingPage(): Page {

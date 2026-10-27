@@ -110,18 +110,62 @@ export const TIER_LABEL: Record<HardwareTier, string> = {
 };
 
 /**
- * Suggested hourly rates by tier, in micro-credits (1,000,000 = $1). These are
- * what the agent advertises unless the operator sets NIGHTSHIFT_HOURLY. The
- * Pricing page's list rates sit above them; the gap funds verification and
- * the router.
+ * Money, by tier. All in micro-credits (1,000,000 = $1).
+ *
+ * A node advertises what it wants to receive (SUGGESTED is the default). The
+ * router adds the platform fee on top when it quotes and charges the
+ * business, so "operators receive 80% of list" is arithmetic, not a promise.
+ * FLOOR is the least a node may ask for its measured tier: roughly the power
+ * it burns at full load at an expensive electricity rate, times 1.5, so no
+ * one can price the whole network below cost.
  */
+export const PLATFORM_FEE_BPS = 2000; // 20% of what the business pays
+
+/** What the business is charged for a node price. */
+export function withFee(nodeMicro: number): number {
+  return Math.max(1, Math.ceil((nodeMicro * 10_000) / (10_000 - PLATFORM_FEE_BPS)));
+}
+/** The most a node can be paid out of a hold (the hold includes the fee). */
+export function nodeShareOf(heldMicro: number): number {
+  return Math.max(1, Math.floor((heldMicro * (10_000 - PLATFORM_FEE_BPS)) / 10_000));
+}
+/** The platform's share of a charged amount. */
+export function feeOf(chargedMicro: number): number {
+  return Math.floor((chargedMicro * PLATFORM_FEE_BPS) / 10_000);
+}
+
 export const HOURLY_SUGGESTED: Record<HardwareTier, number> = {
-  cpu: 20_000,       // $0.02
-  'gpu-8': 90_000,   // $0.09
-  'gpu-16': 160_000, // $0.16
-  'gpu-24': 260_000, // $0.26
-  'gpu-48': 600_000, // $0.60
-  'gpu-80': 1_400_000, // $1.40
+  cpu: 80_000,        // $0.08  (business pays $0.10)
+  'gpu-8': 200_000,   // $0.20  ($0.25)
+  'gpu-16': 320_000,  // $0.32  ($0.40)
+  'gpu-24': 480_000,  // $0.48  ($0.60)
+  'gpu-48': 880_000,  // $0.88  ($1.10)
+  'gpu-80': 1_600_000, // $1.60 ($2.00)
+};
+export const HOURLY_FLOOR: Record<HardwareTier, number> = {
+  cpu: 50_000,        // $0.05
+  'gpu-8': 120_000,   // $0.12
+  'gpu-16': 180_000,  // $0.18
+  'gpu-24': 280_000,  // $0.28
+  'gpu-48': 400_000,  // $0.40
+  'gpu-80': 800_000,  // $0.80
+};
+/** Per 1k output tokens (llm) or 1k work units (compute). */
+export const PER_1K_SUGGESTED: Record<HardwareTier, number> = {
+  cpu: 300,       // $0.30 per 1M units
+  'gpu-8': 320,   // $0.32 per 1M tokens (business pays $0.40)
+  'gpu-16': 440,  // ($0.55)
+  'gpu-24': 640,  // ($0.80)
+  'gpu-48': 1040, // ($1.30)
+  'gpu-80': 1760, // ($2.20)
+};
+export const PER_1K_FLOOR: Record<HardwareTier, number> = {
+  cpu: 180,
+  'gpu-8': 200,
+  'gpu-16': 260,
+  'gpu-24': 380,
+  'gpu-48': 620,
+  'gpu-80': 1050,
 };
 
 export function tierForVram(vramGb: number | undefined): HardwareTier {
@@ -295,7 +339,7 @@ export function fmtCredits(micro: number, digits = 2): string {
   return (micro / MICRO).toFixed(digits);
 }
 
-export const PRICE_FLOOR_PER_1K = 200;      // 0.0002 cr
+export const PRICE_FLOOR_PER_1K = 180;      // the lowest tier's per-1k floor; per-tier floors are in PER_1K_FLOOR
 export const FREE_GRANT_MICRO = 50_000;     // 0.05 cr per anonymous session
 /** One credit is one US dollar for business pricing and payouts. */
 export const USD_PER_CREDIT = 1;
