@@ -671,7 +671,7 @@ export class MockRouter {
         this.fail(n.id, x[3], String(b.reason ?? 'failed'));
         return { status: 200, body: { ok: true } };
       }
-      if (action === 'me') return { status: 200, body: { node: this.rec(n), uptimeMs24h: n.uptime, payoutMinMicro: PAYOUT_MIN_MICRO, balanceMicro: n.balance, ledger: [], jobs: Array.from(this.jobs.values()).filter((q) => q.nodeId === n.id).reverse().slice(0, 20).map((j) => ({ ...j, requesterId: 'hidden', input: { ...j.input, messages: undefined }, output: j.output ? { ...j.output, text: j.output.text === undefined ? undefined : '[hidden]' } : undefined })), payouts: n.payouts } };
+      if (action === 'me') return { status: 200, body: { node: this.rec(n), uptimeMs24h: n.uptime, payoutMinMicro: PAYOUT_MIN_MICRO, balanceMicro: n.balance, ledger: [], jobs: Array.from(this.jobs.values()).filter((q) => q.nodeId === n.id).reverse().slice(0, 20).map((j) => ({ ...j, requesterId: 'hidden', input: { ...j.input, messages: undefined }, output: j.output ? { ...j.output, text: j.output.text === undefined ? undefined : '[hidden]' } : undefined, receiptId: j.status === 'done' ? this.receiptFor(j.id)?.id : undefined, paidMicro: j.status === 'done' ? this.receiptFor(j.id)?.body.costMicro : undefined })), payouts: n.payouts } };
       if (action === 'payouts') {
         const amt = Number(b.amountMicro);
         const address = String(b.address ?? '');

@@ -175,8 +175,8 @@ export function networkPage(): Page {
 
   // --- event feed -------------------------------------------------------
   const feedEl = h('div', { class: 'feed' });
-  function log(kind: string, text: string): void {
-    const row = h('div', null, h('span', { class: 't' }, timeHM(Date.now())), h('span', { class: `k ${kind}` }, kind), h('span', null, text));
+  function log(kind: string, text: string, link?: string): void {
+    const row = h('div', null, h('span', { class: 't' }, timeHM(Date.now())), h('span', { class: `k ${kind}` }, kind), link ? h('a', { href: link, title: 'Open the receipt' }, text) : h('span', null, text));
     feedEl.prepend(row);
     while (feedEl.children.length > 80) feedEl.lastElementChild?.remove();
   }
@@ -211,14 +211,14 @@ export function networkPage(): Page {
         break;
       }
       case 'job.queued':
-        log('queued', `${ev.jobId.slice(0, 12)} · ${ev.workload} · ${ev.model}`);
+        log('queued', `${ev.jobId} · ${ev.workload} · ${ev.model}`);
         break;
       case 'job.assigned':
-        log('assigned', `${ev.jobId.slice(0, 12)} → ${live.nodes.get(ev.nodeId)?.label ?? ev.nodeId.slice(0, 10)}`);
+        log('assigned', `${ev.jobId} → ${live.nodes.get(ev.nodeId)?.label ?? ev.nodeId}`);
         break;
       case 'job.done':
         flash(ev.nodeId, 'done');
-        log('done', `${ev.jobId.slice(0, 12)} · ${ev.units} units · ${fmtMs(ev.durationMs)} · ${fmtUsd(ev.costMicro)}`);
+        log('done', `${ev.jobId} · ${ev.units} units · ${fmtMs(ev.durationMs)} · ${fmtUsd(ev.costMicro)}`, `/receipts/${ev.jobId}`);
         break;
       case 'job.failed':
         log('failed', `${ev.jobId.slice(0, 12)} · ${ev.reason}`);

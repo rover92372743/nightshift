@@ -43,11 +43,11 @@ const usd = (micro: number) => `$${(micro / 1e6).toFixed(micro && micro < 10_000
 const hm = (ms: number) => `${Math.floor(ms / 3600000)}h ${String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0')}m`;
 
 interface Me {
-  node: { id: string; label: string; status: string; capabilities: { pricePer1k: number; pricePerHour?: number; hardware?: { gpu?: string; vramGb?: number; tier?: keyof typeof TIER_LABEL } }; jobsDone: number; jobsFailed: number; unitsVerified: number; earnedMicro: number };
+  node: { id: string; label: string; status: string; capabilities: { pricePer1k: number; pricePerHour?: number; workloads?: string[]; models?: string[]; hardware?: { gpu?: string; vramGb?: number; tier?: keyof typeof TIER_LABEL } }; jobsDone: number; jobsFailed: number; unitsVerified: number; earnedMicro: number };
   uptimeMs24h: number;
   payoutMinMicro: number;
   balanceMicro: number;
-  jobs: JobRecord[];
+  jobs: (JobRecord & { receiptId?: string; paidMicro?: number })[];
   payouts: { id: string; amountMicro: number; rail: string; status: string; txRef?: string; createdAt: number }[];
 }
 
@@ -64,30 +64,78 @@ export function earnPage(): Page {
   function line(k: string, v: string): string {
     return k.padEnd(10) + v;
   }
+  // The terminal has four tabs so nothing has to share a screen with
+  // everything else: a short overview, completed tasks with what each paid,
+  // payouts, and the node's own details.
+  type Tab = 'overview' | 'tasks' | 'payouts' | 'node';
+  let tab: Tab = 'overview';
+  let lastMe: Me | null = null;
+  const tabEls = new Map<Tab, HTMLElement>();
+  const tabs = h(
+    'div',
+    { class: 'term-tabs', role: 'tablist' },
+    ...(
+      [
+        ['overview', 'Overview'],
+        ['tasks', 'Completed tasks'],
+        ['payouts', 'Payouts'],
+        ['node', 'Node'],
+      ] as [Tab, string][]
+    ).map(([id, label]) => {
+      const b = h('button', { class: 'term-tab', role: 'tab', 'aria-selected': id === tab ? 'true' : 'false', onClick: () => setTab(id) }, label);
+      tabEls.set(id, b);
+      return b;
+    }),
+  );
+  function setTab(t: Tab): void {
+    tab = t;
+    for (const [id, el] of tabEls) el.setAttribute('aria-selected', id === t ? 'true' : 'false');
+    if (lastMe) renderMe(lastMe);
+  }
+
   function renderMe(me: Me): void {
+    lastMe = me;
     const n = me.node;
     const hw = n.capabilities.hardware;
-    const rows: string[] = [
-      `nightshift · ${API_BASE || location.host}`,
-      '',
-      line('node', `${n.label}  ${n.id}`),
-      line('status', n.status),
-      line('hardware', `${hw?.gpu ?? 'not reported'}${hw?.vramGb ? `, ${hw.vramGb} GB` : ''}${hw?.tier ? `  (${TIER_LABEL[hw.tier]})` : ''}`),
-      line('price', `$${((n.capabilities.pricePerHour ?? 0) / 1e6).toFixed(2)} per hour · ${fmtPerM(n.capabilities.pricePer1k)} tokens`),
-      line('uptime', `${hm(me.uptimeMs24h)} today`),
-      '',
-      line('balance', `${usd(me.balanceMicro)}  spendable or payable`),
-      line('lifetime', `${usd(n.earnedMicro)} across ${n.jobsDone} task${n.jobsDone === 1 ? '' : 's'}, ${n.unitsVerified} units verified, ${n.jobsFailed} failed`),
-      line('payout', me.balanceMicro >= me.payoutMinMicro ? 'eligible' : `${usd(me.payoutMinMicro - me.balanceMicro)} to minimum`),
-    ];
-    if (me.payouts.length) {
-      rows.push('', 'payouts');
-      for (const p of me.payouts.slice(0, 5)) rows.push(`  ${timeHM(p.createdAt)}  ${usd(p.amountMicro).padStart(10)}  USDC  ${p.status}${p.txRef ? '  ' + p.txRef : ''}`);
-    }
-    rows.push('', 'recent tasks');
-    if (!me.jobs.length) rows.push('  none yet');
-    for (const j of me.jobs.slice(0, 10)) {
-      rows.push(`  ${timeHM(j.createdAt)}  ${j.input.workload.padEnd(8)} ${j.status.padEnd(9)} ${(j.output?.durationMs ? fmtMs(j.output.durationMs) : '').padStart(7)}  ${(j.costMicro ? usd(j.costMicro) : '').padStart(10)}`);
+    const rows: string[] = [];
+    if (tab === 'overview') {
+      rows.push(
+        line('balance', usd(me.balanceMicro)),
+        line('lifetime', `${usd(n.earnedMicro)} across ${n.jobsDone} task${n.jobsDone === 1 ? '' : 's'}`),
+        line('today', `${hm(me.uptimeMs24h)} online`),
+        line('status', n.status),
+        line('payout', me.balanceMicro >= me.payoutMinMicro ? 'eligible' : `${usd(me.payoutMinMicro - me.balanceMicro)} to minimum`),
+      );
+      const done = me.jobs.filter((j) => j.status === 'done');
+      if (done.length) {
+        rows.push('', 'latest');
+        for (const j of done.slice(0, 3)) rows.push(`  ${timeHM(j.createdAt)}  ${j.input.workload.padEnd(8)} ${usd(j.paidMicro ?? 0).padStart(10)}`);
+      }
+    } else if (tab === 'tasks') {
+      const done = me.jobs.filter((j) => j.status === 'done');
+      if (!done.length) rows.push('no completed tasks yet');
+      else {
+        rows.push(`${'when'.padEnd(9)} ${'kind'.padEnd(8)} ${'took'.padStart(7)}  ${'paid'.padStart(10)}  job · receipt`);
+        for (const j of done) rows.push(`${timeHM(j.createdAt).padEnd(9)} ${j.input.workload.padEnd(8)} ${(j.output?.durationMs ? fmtMs(j.output.durationMs) : '').padStart(7)}  ${usd(j.paidMicro ?? 0).padStart(10)}  ${j.id}${j.receiptId ? ' · ' + j.receiptId : ''}`);
+        const sum = done.reduce((a, j) => a + (j.paidMicro ?? 0), 0);
+        rows.push('', `${done.length} shown · ${usd(sum)} · lifetime ${usd(n.earnedMicro)}`, 'paste a job or receipt id on the Verify page to check one.');
+      }
+    } else if (tab === 'payouts') {
+      if (!me.payouts.length) rows.push('no payout requests yet', '', line('balance', usd(me.balanceMicro)), line('minimum', usd(me.payoutMinMicro)));
+      else {
+        rows.push(`${'when'.padEnd(9)} ${'amount'.padStart(10)}  ${'status'.padEnd(9)} reference`);
+        for (const p of me.payouts) rows.push(`${timeHM(p.createdAt).padEnd(9)} ${usd(p.amountMicro).padStart(10)}  ${p.status.padEnd(9)} ${p.txRef ?? (p.status === 'pending' ? 'in review' : '')}`);
+      }
+    } else {
+      rows.push(
+        line('node', n.label),
+        line('id', n.id),
+        line('router', API_BASE || location.host),
+        line('hardware', `${hw?.gpu ?? 'not reported'}${hw?.vramGb ? `, ${hw.vramGb} GB` : ''}${hw?.tier ? `  (${TIER_LABEL[hw.tier]})` : ''}`),
+        line('price', `$${((n.capabilities.pricePerHour ?? 0) / 1e6).toFixed(2)} per hour · ${fmtPerM(n.capabilities.pricePer1k)} tokens`),
+        line('serves', [...(n.capabilities.workloads ?? []), ...(n.capabilities.models ?? [])].join(', ')),
+        line('verified', `${n.unitsVerified} units · ${n.jobsFailed} failed`),
+      );
     }
     term.textContent = rows.join('\n');
     payBtn.disabled = me.balanceMicro < me.payoutMinMicro || me.payouts.some((p) => p.status === 'pending');
@@ -313,7 +361,7 @@ export function earnPage(): Page {
       h(
         'div',
         { style: { display: 'grid', gap: '16px' } },
-        h('div', { class: 'card flush term-card' }, h('div', { class: 'term-bar' }, h('span'), h('span'), h('span'), h('b', null, 'nightshift earnings')), term, h('div', { style: { padding: '0 16px 16px' } }, termNote)),
+        h('div', { class: 'card flush term-card' }, h('div', { class: 'term-bar' }, h('span'), h('span'), h('span'), h('b', null, 'nightshift earnings')), tabs, term, h('div', { style: { padding: '0 16px 16px' } }, termNote)),
         h(
           'div',
           { class: 'card', style: { display: 'grid', gap: '12px' } },

@@ -332,7 +332,8 @@ export function consolePage(): Page {
         if (!id) return bad('usage: batch <id> [results]');
         if (what === 'results') {
           const { items } = await api.batchResults(id);
-          table([['#', 'status', 'input', 'output', 'cost'], ...items.map((it) => [String(it.index), it.status, (it.prompt ?? `compute ${it.rounds}`).slice(0, 36), (it.output ?? it.error ?? '').slice(0, 48), it.costMicro !== undefined ? fmtUsd(it.costMicro) : ''])]);
+          table([['#', 'status', 'job', 'receipt', 'input', 'output', 'cost'], ...items.map((it) => [String(it.index), it.status, it.jobId, it.receiptId ?? '', (it.prompt ?? `compute ${it.rounds}`).slice(0, 28), (it.output ?? it.error ?? '').slice(0, 40), it.costMicro !== undefined ? fmtUsd(it.costMicro) : ''])]);
+          dim('"job <id>" shows one in full with its receipt verified; the Verify page takes either id.');
           dim(`"results ${id}" downloads the full set as JSONL.`);
           return;
         }

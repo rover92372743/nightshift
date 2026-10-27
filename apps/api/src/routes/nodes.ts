@@ -118,7 +118,12 @@ export function nodeRoutes(ctx: Ctx): FastifyPluginAsync {
         payoutMinMicro: ctx.payouts.minimumMicro(),
         balanceMicro: ctx.ledger.balance(acct),
         ledger: ctx.ledger.entries(acct, 30),
-        jobs: ctx.router.recentForNode(nodeId, 20),
+        // What the node was paid is the receipt's cost (its own price); the job's
+        // cost_micro is what the business was charged, fee included.
+        jobs: ctx.router.recentForNode(nodeId, 20).map((j) => {
+          const r = j.status === 'done' ? ctx.router.receipt(j.id) : undefined;
+          return { ...j, receiptId: r?.id, paidMicro: r?.body.costMicro };
+        }),
         payouts: ctx.payouts.list(acct),
       };
     });
