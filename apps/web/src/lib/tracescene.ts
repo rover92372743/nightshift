@@ -371,7 +371,7 @@ export class TraceScene {
         ctx.fillText('steady-maple-365', cx, cy + 16);
         ctx.font = '10px Inter Tight, system-ui, sans-serif';
         ctx.fillStyle = '#9aa7b8';
-        ctx.fillText(s === 4 ? 'running · 14 tok/s' : s === 3 ? 'lease 90 s' : s === 5 ? 'signing' : 'signed', cx, cy + 30);
+        ctx.fillText(s === 4 ? 'running · 14 tok/s' : s === 3 ? 'lease 2 min' : s === 5 ? 'signing' : 'signed', cx, cy + 30);
       }
     }
 
@@ -581,7 +581,7 @@ export class TraceScene {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.fillText('router', rx, ry + rs + 8);
-      const subs = ['hash input', 'quote · hold credits', 'rank candidates by price', 'assign · lease 90 s', 'waiting', 'waiting', 'verify · countersign', 'charge · refund · pay'];
+      const subs = ['hash input', 'quote · hold credits', 'rank candidates by price', 'assign · lease 2 min', 'waiting', 'waiting', 'verify · countersign', 'charge · refund · pay'];
       ctx.font = '10px ui-monospace, Menlo, monospace';
       ctx.fillStyle = s === 6 || s === 7 ? GREEN : BLUE;
       ctx.fillText(subs[Math.max(0, s)] ?? '', rx, ry + rs + 23);

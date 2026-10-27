@@ -344,7 +344,7 @@ export const FREE_GRANT_MICRO = 50_000;     // 0.05 cr per anonymous session
 /** One credit is one US dollar for business pricing and payouts. */
 export const USD_PER_CREDIT = 1;
 export const PAYOUT_MIN_MICRO = 15 * MICRO;  // minimum SOL or USDC payout
-export const LEASE_MS = 90_000;
+export const LEASE_MS = 120_000;       // a node has this long to finish before the job goes back in the queue
 export const HEARTBEAT_MS = 10_000;
-export const OFFLINE_AFTER_MS = 35_000;
+export const OFFLINE_AFTER_MS = 60_000; // quiet this long and the node is marked offline
 export const MAX_ATTEMPTS = 3;

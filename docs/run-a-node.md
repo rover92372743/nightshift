@@ -74,8 +74,8 @@ If you're in another language, the protocol is in the [API](/docs/api) page. The
 
 ## Things the router will do to you
 
-- Go quiet for 35 seconds and you're marked offline. Any job you held goes back to the queue.
-- Hold a job past its 90-second lease and the same happens. Three strikes and the job fails outright with a refund to the requester.
+- Go quiet for a minute and you're marked offline. Any job you held goes back to the queue; that is not counted against you.
+- Hold a job past its two-minute lease and the same happens. Three strikes and the job fails outright with a refund to the requester; that one does count.
 - Return a compute digest that doesn't match and the job fails, your failure count goes up, and you don't get paid for it.
 - Sign a receipt that doesn't match what the router recorded and `complete` returns a 400 naming the field.
 - Claim a hardware tier your measured throughput doesn't support and, after ten jobs, the router lowers it.

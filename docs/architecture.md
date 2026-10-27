@@ -20,13 +20,13 @@ queued ──assign──▶ assigned ──claim──▶ running ──complet
 
 **Enqueue** (`Router.enqueue`). Validate the input, hash it, estimate units, quote against the cheapest candidate, hold the quote on the requester's ledger, insert the job, emit `job.queued`, then try to dispatch.
 
-**Dispatch** (`Router.dispatch`). Walk the queue oldest-first. For each job, find candidates: online, status `online` (not busy), serves the workload, serves the model, prompt and output within the node's caps. Sort by price ascending, then claimed throughput descending, then how long since the node was last seen. Assign to the first, mark it busy, set a 90-second lease, emit `job.assigned`. Dispatch runs on enqueue, on every idle heartbeat and claim, after every completion, and on the housekeeping timer.
+**Dispatch** (`Router.dispatch`). Walk the queue oldest-first. For each job, find candidates: online, status `online` (not busy), serves the workload, serves the model, prompt and output within the node's caps. Sort by price ascending, then claimed throughput descending, then how long since the node was last seen. Assign to the first, mark it busy, set a two-minute lease, emit `job.assigned`. Dispatch runs on enqueue, on every idle heartbeat and claim, after every completion, and on the housekeeping timer.
 
 **Claim** (`Router.claim`). The node asks for its work. It gets the oldest job assigned to it, which flips to `running` with a fresh lease. The point of this split is that "who does the job" is a router decision, not a race between nodes polling the queue.
 
 **Complete** (`Router.complete`). The checks in [Receipts](/docs/receipts), then one transaction: job to `done`, refund the unused hold, credit the node, bump the node's counters, store the receipt. Emit `job.done`. Dispatch again.
 
-**Reaping.** Every five seconds: nodes silent for 35 seconds go offline and their jobs are released; jobs past their lease are released. A released job goes back to `queued` unless it has already had three attempts, in which case it fails and the hold is refunded.
+**Reaping.** Every five seconds: nodes silent for 60 seconds go offline and their jobs are released; jobs past their lease are released. A released job goes back to `queued` unless it has already had three attempts, in which case it fails and the hold is refunded.
 
 ## Why nodes pull
 

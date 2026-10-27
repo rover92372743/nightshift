@@ -219,11 +219,12 @@ export class Router {
   }
 
   private releaseJob(job: JobRecord, reason: string): void {
-    if (job.nodeId) {
-      this.nodes.recordFailed(job.nodeId);
-      this.nodes.setBusy(job.nodeId, false);
-    }
+    // A job handed back to the queue is not the node's failure: a hidden
+    // browser tab, a laptop lid, a flaky connection. Only a job that is
+    // given up on counts, against the node that held it last.
+    if (job.nodeId) this.nodes.setBusy(job.nodeId, false);
     if (job.attempts >= MAX_ATTEMPTS) {
+      if (job.nodeId) this.nodes.recordFailed(job.nodeId);
       this.failJob(job, `${reason} (gave up after ${job.attempts} attempts)`);
       return;
     }

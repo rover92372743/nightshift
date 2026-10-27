@@ -167,12 +167,15 @@ export async function runWorker(
   client: NodeClient,
   work: WorkFn,
   ev: WorkerEvents = {},
-  opts: { pollMs?: number; shouldWork?: () => boolean; signal?: AbortSignal } = {},
+  opts: { pollMs?: number; shouldWork?: () => boolean; signal?: AbortSignal; sleep?: (ms: number) => Promise<void> } = {},
 ): Promise<void> {
   const pollMs = opts.pollMs ?? 1500;
   const shouldWork = opts.shouldWork ?? (() => true);
   const signal = opts.signal;
-  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+  // Browsers throttle a hidden tab's timers; the page can hand in a sleep
+  // backed by a Web Worker, which is not throttled, so a background node
+  // keeps its heartbeat.
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
 
   ev.status?.('registering');
   await client.register();
@@ -199,7 +202,13 @@ export async function runWorker(
       }
       ev.status?.('working', job.id);
       ev.job?.(job);
-      const beat = setInterval(() => client.heartbeat(true).catch(() => {}), 8000);
+      let working = true;
+      const beat = (async () => {
+        while (working) {
+          await sleep(8000);
+          if (working) await client.heartbeat(true).catch(() => {});
+        }
+      })();
       try {
         const ctrl = new AbortController();
         const output = await work(job, ctrl.signal);
@@ -210,7 +219,8 @@ export async function runWorker(
         await client.fail(job, reason).catch(() => {});
         ev.failed?.(job, reason);
       } finally {
-        clearInterval(beat);
+        working = false;
+        void beat;
       }
       ev.status?.('idle');
     } catch (err) {

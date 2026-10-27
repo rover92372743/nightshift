@@ -180,7 +180,7 @@ class NodeRuntime {
         },
         failed: (_j, why) => this.set('idle', `last task failed: ${why}`),
       },
-      { shouldWork: () => this.pausedReason() === null, signal: this.abort.signal },
+      { shouldWork: () => this.pausedReason() === null, signal: this.abort.signal, sleep: workerSleep },
     ).catch((err) => this.set('error', (err as Error).message));
   }
 
@@ -215,4 +215,37 @@ export function markBenched(publicKey: string): void {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * A sleep that keeps time in a Web Worker. Chrome slows a hidden tab's own
+ * timers to once a minute after a few minutes; worker timers are left alone,
+ * so the node's heartbeat and polling keep their rhythm in the background.
+ */
+let ticker: Worker | null = null;
+let tickId = 0;
+const tickWaiters = new Map<number, () => void>();
+function getTicker(): Worker | null {
+  if (ticker) return ticker;
+  try {
+    const src = 'onmessage=(e)=>{setTimeout(()=>postMessage(e.data.id),e.data.ms)}';
+    ticker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    ticker.onmessage = (e: MessageEvent<number>) => {
+      const r = tickWaiters.get(e.data);
+      tickWaiters.delete(e.data);
+      r?.();
+    };
+    return ticker;
+  } catch {
+    return null;
+  }
+}
+export function workerSleep(ms: number): Promise<void> {
+  const w = getTicker();
+  if (!w) return new Promise((r) => setTimeout(r, ms));
+  return new Promise((resolve) => {
+    const id = ++tickId;
+    tickWaiters.set(id, resolve);
+    w.postMessage({ id, ms });
+  });
 }
