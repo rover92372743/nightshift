@@ -107,6 +107,8 @@ function topbar(): void {
   const menu = h('button', { class: 'btn secondary icon menu-btn', 'aria-label': 'Menu', onClick: () => nav.classList.toggle('is-open') }, '☰');
   const sun = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
   const moon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  const X_URL = 'https://x.com/nightshifthost';
+  const xLink = h('a', { class: 'theme-btn x-link', href: X_URL, target: '_blank', rel: 'noopener', 'aria-label': 'Nightshift on X', title: 'Nightshift on X' }, svg('<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M18.9 2H22l-7.6 8.7L23.3 22h-7l-5.5-7.2L4.5 22H1.4l8.1-9.3L.8 2h7.2l5 6.6L18.9 2Zm-1.2 18.1h1.7L7.4 3.8H5.6l12.1 16.3Z"/></svg>'));
   const themeBtn = h('button', { class: 'theme-btn', type: 'button', 'aria-label': 'Toggle night mode', title: 'Night mode' });
   const paint = () => (themeBtn.innerHTML = currentTheme() === 'dark' ? sun : moon);
   themeBtn.addEventListener('click', () => {
@@ -125,7 +127,7 @@ function topbar(): void {
       { class: 'container' },
       h('a', { class: 'brand', href: '/' }, mark, 'Nightshift'),
       nav,
-      h('div', { class: 'topbar-right' }, nodePill, pulse, themeBtn, h('a', { class: 'btn sm', href: '/console' }, 'Send work'), menu),
+      h('div', { class: 'topbar-right' }, nodePill, pulse, xLink, themeBtn, h('a', { class: 'btn sm', href: '/console' }, 'Send work'), menu),
     ),
   );
   window.addEventListener('scroll', () => bar.classList.toggle('is-scrolled', window.scrollY > 8), { passive: true });
@@ -147,6 +149,7 @@ function topbar(): void {
           h('a', { href: '/docs/run-a-node' }, 'Run a node'),
           h('a', { href: '/docs/privacy' }, 'Privacy'),
           h('a', { href: '/receipts' }, 'Verify a receipt'),
+          h('a', { href: X_URL, target: '_blank', rel: 'noopener' }, 'X'),
         ),
       ),
       h('p', { class: 'footer-legal' }, 'Nothing on this site is investment advice.'),
