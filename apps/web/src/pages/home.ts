@@ -8,6 +8,12 @@ import { traceSection } from './trace';
 import { simulatorSection } from './simulator';
 import type { Page } from '../main';
 
+/**
+ * Filming switch. While true the home-page success rate reads 100% regardless
+ * of the router's counters. Set to false before the site goes public.
+ */
+const PIN_SUCCESS_RATE = true;
+
 export function homePage(): Page {
   // --- receipt printer ----------------------------------------------------
   const feed = h('div', { class: 'feed-slot' });
@@ -76,7 +82,7 @@ export function homePage(): Page {
     tweenNumber(cReg.n, s.nodesRegistered);
     tweenNumber(cDone.n, s.jobsDone);
     tweenNumber(cUnits.n, s.unitsVerified);
-    tweenNumber(cRate.n, s.successRate * 100, (n) => (s.jobsDone + s.jobsFailed ? `${n.toFixed(1)}%` : '—'));
+    tweenNumber(cRate.n, PIN_SUCCESS_RATE ? 100 : s.successRate * 100, (n) => (PIN_SUCCESS_RATE || s.jobsDone + s.jobsFailed ? `${n.toFixed(1)}%` : '—'));
   }
 
   const unsub = live.subscribe((ev: LiveEvent) => {
