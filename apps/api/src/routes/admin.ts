@@ -86,6 +86,12 @@ export function adminRoutes(ctx: Ctx): FastifyPluginAsync {
       }
     });
 
+    /** The queue by workload and model, so a backlog nothing can serve is obvious. */
+    app.get('/queue', async () => ({ queue: ctx.router.queueSummary() }));
+
+    /** Cancel queued jobs across every account (all, or one workload); holds are refunded. */
+    app.post<{ Body: { workload?: 'llm' | 'compute'; batchId?: string } }>('/queue/cancel', async (req) => ctx.router.cancelQueued({ workload: req.body?.workload, batchId: req.body?.batchId }));
+
     /** Recent jobs across all accounts, content stripped. */
     app.get('/jobs', async () => ({ jobs: ctx.router.recentAll(50) }));
   };

@@ -74,7 +74,12 @@ keys new "Acme eval team" 500  mint a key for a customer with an opening balance
 grant acct_… 250 "invoice 1042"   add credits (negative numbers claw back)
 quotes                         inquiries sent from the pricing page
 all                            last 50 tasks across every account, content hidden
+queue                          what is waiting, by workload and model
+purge llm | compute | all      cancel queued jobs network-wide; holds go back to requesters
+cancel bat_…                   cancel what is still queued in one batch (businesses can do this for their own)
 ```
+
+A queue full of model jobs with no model node online does not block compute jobs behind it; the dispatcher walks the whole queue. But it does hold the requester's credits until something serves them or they are cancelled, so `queue` is worth a look now and then.
 
 Without the environment variable the `/v1/admin` routes answer 404, so a router that was never configured for it exposes nothing. The admin key is compared in constant time and is never written to the database.
 

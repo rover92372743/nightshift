@@ -48,7 +48,7 @@ export function networkPage(): Page {
   const IDLE = 'Hover a region. Click one to fly in.';
   const readout = h('div', { class: 'console-readout' }, h('span', null, IDLE));
   const pinned = h('div', { class: 'console-pinned', hidden: true });
-  const field = new Globe(canvas);
+  const field = new Globe(canvas, { ambient: true });
   field.onHover = (text) => {
     readout.firstElementChild!.textContent = text ?? (field.focus ? 'Hover a node. Click one to pin it. Esc to zoom out.' : IDLE);
   };

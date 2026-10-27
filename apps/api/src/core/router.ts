@@ -15,6 +15,7 @@ import type {
   NodeRecord,
   Receipt,
   ReceiptBody,
+  Workload,
 } from '@nightshift/shared';
 import {
   canonical,
@@ -134,29 +135,88 @@ export class Router {
 
   /** Walk the queue oldest-first and hand each job to the cheapest idle node that can run it. */
   dispatch(): void {
-    const queued = this.db
-      .prepare("SELECT * FROM jobs WHERE status='queued' ORDER BY created_at ASC LIMIT 100")
-      .all() as Array<Record<string, unknown>>;
-    if (queued.length === 0) return;
-
+    // Idle nodes first: if nobody is free there is nothing to do, and the
+    // number of idle nodes bounds how many jobs can leave the queue this pass.
+    const idle = this.nodes.online().filter((n) => n.status === 'online');
+    if (idle.length === 0) return;
     const taken = new Set<string>();
-    for (const row of queued) {
-      const job = rowToJob(row);
-      const input = job.input;
-      const cands = this.nodes
-        .candidates(input.workload, input.model, promptChars(input), input.maxOutputTokens ?? 0)
-        .filter((n) => !taken.has(n.id));
-      if (cands.length === 0) continue;
 
-      const node = pickCheapest(cands, input.billing === 'time');
-      taken.add(node.id);
-      const t = nowMs();
-      this.db
-        .prepare("UPDATE jobs SET status='assigned', node_id=?, lease_expires_at=?, assigned_at=?, attempts=attempts+1 WHERE id=? AND status='queued'")
-        .run(node.id, t + LEASE_MS, t, job.id);
-      this.nodes.setBusy(node.id, true);
-      this.live.emit({ t: 'job.assigned', jobId: job.id, nodeId: node.id });
+    // Walk the whole queue oldest-first, in pages, skipping jobs nobody can
+    // take. A thousand model jobs waiting for a GPU must not hide the compute
+    // job behind them that a CPU tab could do right now.
+    const PAGE = 500;
+    let after = 0;
+    while (taken.size < idle.length) {
+      const queued = this.db
+        .prepare("SELECT rowid AS rid, * FROM jobs WHERE status='queued' AND rowid > ? ORDER BY rowid ASC LIMIT ?")
+        .all(after, PAGE) as Array<Record<string, unknown>>;
+      if (queued.length === 0) break;
+      for (const row of queued) {
+        after = row.rid as number;
+        if (taken.size >= idle.length) break;
+        const job = rowToJob(row);
+        const input = job.input;
+        const cands = this.nodes
+          .candidates(input.workload, input.model, promptChars(input), input.maxOutputTokens ?? 0)
+          .filter((n) => !taken.has(n.id));
+        if (cands.length === 0) continue;
+
+        const node = pickCheapest(cands, input.billing === 'time');
+        taken.add(node.id);
+        const t = nowMs();
+        this.db
+          .prepare("UPDATE jobs SET status='assigned', node_id=?, lease_expires_at=?, assigned_at=?, attempts=attempts+1 WHERE id=? AND status='queued'")
+          .run(node.id, t + LEASE_MS, t, job.id);
+        this.nodes.setBusy(node.id, true);
+        this.live.emit({ t: 'job.assigned', jobId: job.id, nodeId: node.id });
+      }
+      if (queued.length < PAGE) break;
     }
+  }
+
+  /** What is waiting, grouped so an operator can see what nothing can serve. */
+  queueSummary(): Array<{ workload: Workload; model: string; status: JobStatus; n: number; heldMicro: number; oldest: number }> {
+    return this.db
+      .prepare(
+        `SELECT json_extract(input,'$.workload') AS workload, json_extract(input,'$.model') AS model, status, COUNT(*) AS n, COALESCE(SUM(price_micro),0) AS heldMicro, MIN(created_at) AS oldest
+         FROM jobs WHERE status IN ('queued','assigned','running') GROUP BY 1,2,3 ORDER BY n DESC`,
+      )
+      .all() as Array<{ workload: Workload; model: string; status: JobStatus; n: number; heldMicro: number; oldest: number }>;
+  }
+
+  /**
+   * Cancel queued jobs and refund their holds. Scoped by requester, batch, or
+   * workload so an operator can clear a backlog nothing can serve.
+   */
+  cancelQueued(filter: { requesterId?: string; batchId?: string; workload?: Workload }): { cancelled: number; refundedMicro: number } {
+    const where: string[] = ["status='queued'"];
+    const args: unknown[] = [];
+    if (filter.requesterId) {
+      where.push('requester_id=?');
+      args.push(filter.requesterId);
+    }
+    if (filter.batchId) {
+      where.push('batch_id=?');
+      args.push(filter.batchId);
+    }
+    if (filter.workload) {
+      where.push("json_extract(input, '$.workload')=?");
+      args.push(filter.workload);
+    }
+    const rows = this.db.prepare(`SELECT * FROM jobs WHERE ${where.join(' AND ')}`).all(...args) as Array<Record<string, unknown>>;
+    let refunded = 0;
+    const t = nowMs();
+    const tx = this.db.transaction(() => {
+      for (const row of rows) {
+        const job = rowToJob(row);
+        this.db.prepare("UPDATE jobs SET status='cancelled', error='cancelled', finished_at=? WHERE id=? AND status='queued'").run(t, job.id);
+        this.ledger.post(job.requesterId, job.priceMicro, 'refund', job.id);
+        refunded += job.priceMicro;
+      }
+    });
+    tx();
+    for (const row of rows) this.live.emit({ t: 'job.failed', jobId: row.id as string, reason: 'cancelled' });
+    return { cancelled: rows.length, refundedMicro: refunded };
   }
 
   /** What a node calls to pick up its work. Returns at most one job. */

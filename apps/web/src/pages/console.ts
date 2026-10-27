@@ -341,6 +341,33 @@ export function consolePage(): Page {
         if (bt.counts.done + bt.counts.failed < bt.total) void watchBatch(id);
       },
     },
+    cancel: {
+      help: 'cancel <batch id>    cancel what is still queued in a batch; holds come back',
+      run: async ([id]) => {
+        if (!id) return bad('usage: cancel bat_…');
+        const r = session.admin() && !session.key() ? await api.admin.purge(undefined, id) : await api.cancelBatch(id);
+        ok(`${r.cancelled} cancelled · ${fmtUsd(r.refundedMicro)} returned`);
+      },
+    },
+    queue: {
+      admin: true,
+      help: 'queue                what is waiting, by workload and model',
+      run: async () => {
+        const { queue } = await api.admin.queue();
+        if (!queue.length) return dim('queue is empty.');
+        table([['status', 'workload', 'model', 'count', 'held', 'oldest'], ...queue.map((q) => [q.status, q.workload, q.model, String(q.n), fmtUsd(q.heldMicro), timeHM(q.oldest)])]);
+        dim('"purge llm" or "purge compute" cancels every queued job of that kind across all accounts; "purge all" clears the queue.');
+      },
+    },
+    purge: {
+      admin: true,
+      help: 'purge <llm|compute|all>   cancel queued jobs network-wide; holds are refunded',
+      run: async ([what]) => {
+        if (!['llm', 'compute', 'all'].includes(what ?? '')) return bad('usage: purge llm | purge compute | purge all');
+        const r = await api.admin.purge(what === 'all' ? undefined : (what as 'llm' | 'compute'));
+        ok(`${r.cancelled} cancelled · ${fmtUsd(r.refundedMicro)} returned to requesters`);
+      },
+    },
     results: {
       help: 'results <id>         download a batch as JSONL',
       run: async ([id]) => {

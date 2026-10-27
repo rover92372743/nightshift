@@ -100,6 +100,22 @@ export function inferenceRoutes(ctx: Ctx): FastifyPluginAsync {
       }
     });
 
+    /** Cancel what is still queued in one of your batches; running items finish. */
+    app.post<{ Params: { id: string } }>('/batches/:id/cancel', async (req, reply) => {
+      const acct = who(req, reply);
+      if (!ctx.router.batch(acct, req.params.id)) {
+        reply.code(404);
+        return { error: { message: 'batch not found' } };
+      }
+      return ctx.router.cancelQueued({ requesterId: acct, batchId: req.params.id });
+    });
+
+    /** Cancel everything of yours that is still queued. */
+    app.post<{ Body: { workload?: 'llm' | 'compute' } }>('/jobs/cancel-queued', async (req, reply) => {
+      const acct = who(req, reply);
+      return ctx.router.cancelQueued({ requesterId: acct, workload: req.body?.workload });
+    });
+
     app.get('/batches', async (req, reply) => {
       const acct = who(req, reply);
       return { batches: ctx.router.batchesFor(acct).map((b) => ({ ...b, ...ctx.router.batch(acct, b.id)! })) };

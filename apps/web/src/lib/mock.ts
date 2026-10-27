@@ -453,6 +453,34 @@ export class MockRouter {
         return { status: 200, body: { entry, balanceMicro: this.balance } };
       }
       if (path === '/v1/admin/quotes') return { status: 200, body: { quotes: this.quotes } };
+      if (path === '/v1/admin/queue/cancel') {
+        let cancelled = 0;
+        let refunded = 0;
+        for (const j of this.jobs.values()) {
+          if (j.status !== 'queued' || j.requesterId === 'demo') continue;
+          if (b.workload && j.input.workload !== b.workload) continue;
+          if (b.batchId && j.batchId !== b.batchId) continue;
+          j.status = 'cancelled';
+          j.error = 'cancelled';
+          this.balance += j.priceMicro;
+          refunded += j.priceMicro;
+          cancelled++;
+        }
+        return { status: 200, body: { cancelled, refundedMicro: refunded } };
+      }
+      if (path === '/v1/admin/queue') {
+        const g = new Map<string, { workload: string; model: string; status: string; n: number; heldMicro: number; oldest: number }>();
+        for (const j of this.jobs.values()) {
+          if (!['queued', 'assigned', 'running'].includes(j.status)) continue;
+          const k = `${j.status}|${j.input.workload}|${j.input.model}`;
+          const e = g.get(k) ?? { workload: j.input.workload, model: j.input.model, status: j.status, n: 0, heldMicro: 0, oldest: j.createdAt };
+          e.n++;
+          e.heldMicro += j.priceMicro;
+          e.oldest = Math.min(e.oldest, j.createdAt);
+          g.set(k, e);
+        }
+        return { status: 200, body: { queue: Array.from(g.values()).sort((a, b2) => b2.n - a.n) } };
+      }
       if (path === '/v1/admin/payouts') {
         const all = Array.from(this.nodes.values()).flatMap((n) => n.payouts.map((p) => ({ ...p, accountId: `nacct_${n.id}`, nodeLabel: n.label, balanceMicro: n.balance, earnedMicro: n.earned, jobsDone: n.jobsDone, priorRequests: n.payouts.length - 1, addressSharedWith: 0 })));
         all.sort((a, b2) => (a.status === 'pending' ? 0 : 1) - (b2.status === 'pending' ? 0 : 1) || b2.createdAt - a.createdAt);
@@ -505,6 +533,38 @@ export class MockRouter {
       }
       this.batches.set(batchId, { id: batchId, label: b.label ? String(b.label) : null, total: items.length, createdAt: Date.now(), jobIds: jobs.map((j) => j.id) });
       return { status: 202, body: { id: batchId, total: items.length, jobIds: jobs.map((j) => j.id) } };
+    }
+    if ((x = m(/^\/v1\/batches\/([^/]+)\/cancel$/)) && method === 'POST') {
+      const bt = this.batches.get(x[1]);
+      if (!bt) return { status: 404, body: err('batch not found') };
+      let cancelled = 0;
+      let refunded = 0;
+      for (const jid of bt.jobIds) {
+        const j = this.jobs.get(jid);
+        if (j && j.status === 'queued') {
+          j.status = 'cancelled';
+          j.error = 'cancelled';
+          this.balance += j.priceMicro;
+          refunded += j.priceMicro;
+          cancelled++;
+        }
+      }
+      return { status: 200, body: { cancelled, refundedMicro: refunded } };
+    }
+    if (path === '/v1/jobs/cancel-queued') {
+      let cancelled = 0;
+      let refunded = 0;
+      for (const j of this.jobs.values()) {
+        if (j.status !== 'queued' || j.requesterId === 'demo') continue;
+        if (b.workload && j.input.workload !== b.workload) continue;
+        if (b.batchId && j.batchId !== b.batchId) continue;
+        j.status = 'cancelled';
+        j.error = 'cancelled';
+        this.balance += j.priceMicro;
+        refunded += j.priceMicro;
+        cancelled++;
+      }
+      return { status: 200, body: { cancelled, refundedMicro: refunded } };
     }
     if (path === '/v1/batches' && method === 'GET') return { status: 200, body: { batches: Array.from(this.batches.values()).reverse().map((bt) => this.batchSummary(bt)) } };
     if ((x = m(/^\/v1\/batches\/([^/]+)$/))) {

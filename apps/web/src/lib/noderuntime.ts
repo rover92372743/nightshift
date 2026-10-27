@@ -6,7 +6,7 @@
 // and the person ticked the box. Both run in a Web Worker so the page never
 // stutters. The tab never shows task content.
 
-import type { BenchResult } from '@nightshift/shared';
+import type { BenchResult, RegionKey } from '@nightshift/shared';
 import { NodeClient, runWorker, COMPUTE_ROUNDS_PER_UNIT, type JobRecord, type Receipt, type Signer, type Workload, type HardwareTier } from '@nightshift/shared';
 import { API_BASE } from './api';
 import { WorkerHost } from '../worker/host';
@@ -142,6 +142,7 @@ class NodeRuntime {
         pricePer1k: settings.price,
         tokensPerSec: this.device === 'webgpu' ? 25 : 6,
         hardware: { gpu: this.gpu.name, tier: serveModel ? this.gpu.tier : 'cpu' },
+        region: regionFromTimezone(),
       },
       benchmark,
     });
@@ -248,4 +249,30 @@ export function workerSleep(ms: number): Promise<void> {
     tickWaiters.set(id, resolve);
     w.postMessage({ id, ms });
   });
+}
+
+/**
+ * A coarse region from the browser's timezone, so a tab shows up on the globe
+ * without asking for location. A timezone is a city-sized hint at best, which
+ * is exactly as precise as the region list goes.
+ */
+const TZ_REGION: Record<string, RegionKey> = {
+  'America/Toronto': 'toronto', 'America/Montreal': 'montreal', 'America/Vancouver': 'vancouver', 'America/Edmonton': 'vancouver', 'America/Winnipeg': 'chicago', 'America/Halifax': 'montreal',
+  'America/New_York': 'new-york', 'America/Detroit': 'chicago', 'America/Chicago': 'chicago', 'America/Denver': 'denver', 'America/Phoenix': 'denver', 'America/Los_Angeles': 'los-angeles',
+  'America/Mexico_City': 'mexico-city', 'America/Sao_Paulo': 'sao-paulo', 'America/Argentina/Buenos_Aires': 'buenos-aires', 'America/Santiago': 'santiago', 'America/Bogota': 'miami', 'America/Lima': 'santiago',
+  'Europe/London': 'london', 'Europe/Dublin': 'dublin', 'Europe/Lisbon': 'madrid', 'Europe/Madrid': 'madrid', 'Europe/Paris': 'paris', 'Europe/Brussels': 'amsterdam', 'Europe/Amsterdam': 'amsterdam',
+  'Europe/Berlin': 'frankfurt', 'Europe/Zurich': 'frankfurt', 'Europe/Vienna': 'frankfurt', 'Europe/Prague': 'frankfurt', 'Europe/Rome': 'milan', 'Europe/Stockholm': 'stockholm', 'Europe/Oslo': 'stockholm',
+  'Europe/Copenhagen': 'stockholm', 'Europe/Helsinki': 'helsinki', 'Europe/Warsaw': 'warsaw', 'Europe/Kyiv': 'warsaw', 'Europe/Istanbul': 'istanbul', 'Europe/Athens': 'istanbul',
+  'Asia/Dubai': 'dubai', 'Asia/Jerusalem': 'tel-aviv', 'Asia/Tel_Aviv': 'tel-aviv', 'Africa/Cairo': 'cairo', 'Africa/Lagos': 'lagos', 'Africa/Nairobi': 'nairobi', 'Africa/Johannesburg': 'johannesburg',
+  'Asia/Kolkata': 'mumbai', 'Asia/Calcutta': 'mumbai', 'Asia/Singapore': 'singapore', 'Asia/Jakarta': 'jakarta', 'Asia/Kuala_Lumpur': 'singapore', 'Asia/Bangkok': 'singapore', 'Asia/Manila': 'hong-kong',
+  'Asia/Hong_Kong': 'hong-kong', 'Asia/Shanghai': 'hong-kong', 'Asia/Taipei': 'taipei', 'Asia/Seoul': 'seoul', 'Asia/Tokyo': 'tokyo',
+  'Australia/Sydney': 'sydney', 'Australia/Melbourne': 'melbourne', 'Australia/Brisbane': 'sydney', 'Australia/Perth': 'singapore', 'Pacific/Auckland': 'auckland',
+};
+export function regionFromTimezone(): RegionKey | undefined {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return TZ_REGION[tz];
+  } catch {
+    return undefined;
+  }
 }

@@ -48,6 +48,10 @@ interface Hub {
   sx: number;
   sy: number;
   z: number;
+  /** Decorative: ambient activity drawn for the look of the thing, not a counted node. */
+  ghost?: boolean;
+  /** Ghost hubs carry a small pretend node count for sizing only. */
+  ghostCount?: number;
 }
 
 interface Packet {
@@ -120,8 +124,19 @@ export class Globe {
   onFocus?: (region: { key: RegionKey; name: string; nodes: PublicNode[] } | null) => void;
   onClick?: (nodeId: string) => void;
 
-  constructor(private canvas: HTMLCanvasElement) {
+  private ambientHubs: Hub[] = [];
+  private ambientAt = 0;
+
+  constructor(private canvas: HTMLCanvasElement, private opts: { ambient?: boolean } = {}) {
     this.ctx = canvas.getContext('2d')!;
+    if (opts.ambient) {
+      // A spread of regions with light, continuous activity so the globe
+      // reads as a living network. Not counted anywhere; the HUD, the
+      // stats and the fly-in only ever use real nodes.
+      const keys: RegionKey[] = ['toronto', 'new-york', 'virginia', 'dallas', 'los-angeles', 'seattle', 'chicago', 'sao-paulo', 'london', 'amsterdam', 'frankfurt', 'paris', 'warsaw', 'stockholm', 'mumbai', 'singapore', 'tokyo', 'seoul', 'sydney', 'johannesburg', 'dubai', 'mexico-city'];
+      const r = prng(5);
+      this.ambientHubs = keys.map((key) => ({ key, name: REGIONS[key].name, lat: REGIONS[key].lat, lon: REGIONS[key].lon, nodes: [], pulse: 0, hot: 0, sx: 0, sy: 0, z: -1, ghost: true, ghostCount: 1 + Math.floor(r() * 4) }));
+    }
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(canvas);
     this.io = new IntersectionObserver(([e]) => (this.visible = e.isIntersecting), { threshold: 0.01 });
@@ -165,11 +180,11 @@ export class Globe {
       if (this.backBtn && inRect(x, y, this.backBtn)) return this.unfocus();
       if (this.focus) {
         if (this.hoveredNode) this.onClick?.(this.hoveredNode.id);
-        else if (this.hoveredHub && this.hoveredHub !== this.focus) this.focusHub(this.hoveredHub);
+        else if (this.hoveredHub && !this.hoveredHub.ghost && this.hoveredHub !== this.focus) this.focusHub(this.hoveredHub);
         else this.unfocus();
         return;
       }
-      if (this.hoveredHub) this.focusHub(this.hoveredHub);
+      if (this.hoveredHub && !this.hoveredHub.ghost) this.focusHub(this.hoveredHub);
     };
     canvas.addEventListener('pointerup', up);
     canvas.addEventListener('pointercancel', () => (this.drag = null));
@@ -547,7 +562,8 @@ export class Globe {
     // hubs
     let hovered: Hub | null = null;
     let bestD = 26;
-    for (const hub of this.hubs.values()) {
+    const allHubs: Hub[] = [...this.hubs.values(), ...this.ambientHubs.filter((a) => !this.hubs.has(a.key))];
+    for (const hub of allHubs) {
       const [x, y, z] = this.project(hub.lat, hub.lon, R, [cx, cy]);
       hub.sx = x;
       hub.sy = y;
@@ -561,10 +577,11 @@ export class Globe {
         }
       }
     }
-    const sorted = Array.from(this.hubs.values()).filter((hb) => hb.z > 0).sort((a, b) => a.z - b.z);
+    const sorted = allHubs.filter((hb) => hb.z > 0).sort((a, b) => a.z - b.z);
     for (const hub of sorted) {
-      const busy = hub.nodes.filter((n) => n.busy).length;
-      const size = (3 + Math.sqrt(hub.nodes.length) * 2.2) * (0.8 + hub.z * 0.2) * (zoomed ? 1.3 : 1);
+      const count = hub.ghost ? (hub.ghostCount ?? 1) : hub.nodes.length;
+      const busy = hub.ghost ? (hub.pulse > 0.5 ? 1 : 0) : hub.nodes.filter((n) => n.busy).length;
+      const size = (3 + Math.sqrt(count) * 2.2) * (0.8 + hub.z * 0.2) * (zoomed ? 1.3 : 1);
       const col = hub.hot > 0 ? mix(BLUE, GREEN, hub.hot) : BLUE;
       const isFocus = this.focus === hub;
       // ground glow
@@ -611,7 +628,7 @@ export class Globe {
       ctx.fill();
       hub.hot = Math.max(0, hub.hot - 0.01);
       // label: always when zoomed or hovered, otherwise for the bigger hubs facing us
-      if (!isFocus && (hovered === hub || zoomed || (hub.z > 0.6 && hub.nodes.length >= 3))) {
+      if (!isFocus && !hub.ghost && (hovered === hub || zoomed || (hub.z > 0.6 && hub.nodes.length >= 3))) {
         ctx.font = `${hovered === hub ? 600 : 400} 11px Inter Tight, system-ui, sans-serif`;
         ctx.fillStyle = hovered === hub ? INK : rgba('#c7d0dc', 0.35 + hub.z * 0.5);
         ctx.textAlign = 'left';
@@ -622,12 +639,29 @@ export class Globe {
     if (!this.focus && !this.drag && hovered !== this.hoveredHub) {
       this.hoveredHub = hovered;
       this.canvas.style.cursor = hovered ? 'pointer' : this.drag ? 'grabbing' : 'grab';
-      this.onHover?.(hovered ? `${hovered.name} · ${hovered.nodes.length} node${hovered.nodes.length === 1 ? '' : 's'} · ${hovered.nodes.filter((n) => n.busy).length} working · click to fly in` : null);
+      this.onHover?.(hovered ? (hovered.ghost ? hovered.name : `${hovered.name} · ${hovered.nodes.length} node${hovered.nodes.length === 1 ? '' : 's'} · ${hovered.nodes.filter((n) => n.busy).length} working · click to fly in`) : null);
     } else if (this.focus) this.hoveredHub = hovered;
 
     // focused region: unfold its nodes around the hub
     if (this.focus) this.drawFocus(this.focus, t, focusK);
     else this.hoveredNode = null;
+
+    // ambient traffic: a packet out to some region, and a receipt back a moment later
+    if (this.opts.ambient && !this.reduced && now > this.ambientAt) {
+      this.ambientAt = now + 350 + Math.random() * 700;
+      const pool = allHubs.filter((hb) => hb.z > 0.05);
+      if (pool.length) {
+        const hub = pool[Math.floor(Math.random() * pool.length)];
+        this.satPulse = 1;
+        this.packets.push(this.mk(() => this.satPos(), () => this.hubPos(hub), BLUE, 'job', 1100, () => {
+          hub.pulse = 1;
+          setTimeout(() => {
+            hub.hot = 1;
+            this.packets.push(this.mk(() => this.hubPos(hub), () => this.satPos(), GREEN, 'receipt', 1100, () => (this.satPulse = 1)));
+          }, 400 + Math.random() * 1400);
+        }));
+      }
+    }
 
     // packets (screen-space arcs that bow away from the globe centre)
     for (let i = this.packets.length - 1; i >= 0; i--) {
