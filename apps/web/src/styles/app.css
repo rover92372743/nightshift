@@ -261,6 +261,24 @@ img, svg, canvas { display: block; max-width: 100%; }
 .hero .lede { font-size: clamp(1.08rem, 1.5vw, 1.25rem); color: var(--ink-2); margin-top: 22px; max-width: 44ch; }
 .hero .actions { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
 .hero .test-note { display: block; margin-top: 10px; min-height: 1.4em; }
+.token-box { margin-top: 24px; display: grid; grid-template-columns: 92px 1fr; max-width: 520px; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; font-family: var(--mono); }
+.token-stub { display: grid; place-items: center; border-right: 1px dashed var(--rule); background: rgba(143, 163, 255, 0.05); position: relative; }
+.token-stub::before, .token-stub::after { content: ''; position: absolute; right: -6px; width: 12px; height: 12px; border-radius: 50%; background: var(--paper); border: 1px solid var(--rule); }
+.token-stub::before { top: -7px; }
+.token-stub::after { bottom: -7px; }
+.token-ic { width: 56px; height: 56px; filter: drop-shadow(0 0 10px rgba(143, 163, 255, 0.25)); }
+.token-body { display: grid; gap: 8px; padding: 16px 16px; min-width: 0; align-content: center; }
+.token-line { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 0.8rem; letter-spacing: 0.04em; }
+.token-line b { font-family: var(--sans); font-size: 1rem; letter-spacing: 0; color: var(--code-fg); }
+.token-k { color: #5a6578; font-size: 0.68rem; letter-spacing: 0.12em; width: 44px; flex: none; }
+.token-state { margin-left: auto; font-size: 0.66rem; letter-spacing: 0.14em; padding: 3px 8px; border: 1px solid var(--rule); border-radius: 999px; color: #9aa7b8; }
+.token-state.live { color: var(--ok); border-color: var(--ok); }
+.token-addr { color: var(--code-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.token-addr.pending { color: #8fa3ff; letter-spacing: 0.12em; font-size: 0.74rem; }
+.token-cursor { display: inline-block; width: 7px; height: 0.95em; background: #8fa3ff; margin-left: 4px; vertical-align: text-bottom; animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { to { visibility: hidden; } }
+.token-copy { margin-left: auto; flex: none; }
+@media (prefers-reduced-motion: reduce) { .token-cursor { animation: none; } }
 .hero-receipt { justify-self: end; width: min(100%, 380px); }
 .hero .caption { margin-top: 14px; font-size: 0.9rem; color: var(--ink-2); text-align: center; min-height: 1.4em; }
 .field-tip { position: fixed; z-index: 30; background: var(--code-bg); color: var(--code-fg); border: 1px solid var(--rule); font-size: 12px; padding: 5px 9px; border-radius: 6px; pointer-events: none; white-space: nowrap; }
